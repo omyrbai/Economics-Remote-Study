@@ -301,7 +301,7 @@ async def distribute_message(message):
     #
     # This is needed for ForwardMessagesRequest.
     try:
-        source_peer = await client.get_input_entity(
+        source_peer = await bot_client.get_input_entity(
             message.peer_id
         )
     except Exception as error:
@@ -347,7 +347,7 @@ async def distribute_message(message):
 
                 topic_id = int(topic_id)
 
-                entity = await client.get_entity(
+                entity = await bot_client.get_entity(
                     chat_id
                 )
 
@@ -357,7 +357,7 @@ async def distribute_message(message):
                     # "Forwarded from..." header.
                     #
                     # reply_to is the topic root message ID.
-                    await client.send_message(
+                    await bot_client.send_message(
                         entity,
                         message,
                         reply_to=topic_id,
@@ -371,7 +371,7 @@ async def distribute_message(message):
                     # Telegram's raw messages.forwardMessages
                     # does support top_msg_id, which is the
                     # destination forum topic.
-                    await client(
+                    await bot_client(
                         functions.messages.ForwardMessagesRequest(
                             from_peer=source_peer,
                             id=[message.id],
