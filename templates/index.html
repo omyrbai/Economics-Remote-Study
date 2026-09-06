@@ -1,0 +1,1964 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Dekanat Telegram Manager</title>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: #f4f5f7;
+            color: #222;
+            font-family:
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                Roboto,
+                Arial,
+                sans-serif;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            margin: 0 0 20px;
+            font-size: 24px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            flex: 1;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 10px;
+            background: #e5e7eb;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .tab-button.active {
+            background: #111827;
+            color: white;
+        }
+
+        .tab {
+            display: none;
+        }
+
+        .tab.active {
+            display: block;
+        }
+
+        .card {
+            background: white;
+            border-radius: 14px;
+            padding: 18px;
+            margin-bottom: 16px;
+            box-shadow:
+                0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 14px;
+        }
+
+        .radio-row,
+        .switch-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .radio-row:last-child,
+        .switch-row:last-child {
+            border-bottom: none;
+        }
+
+        .radio-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="radio"],
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+
+        .switch {
+            position: relative;
+            width: 48px;
+            height: 28px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            inset: 0;
+            border-radius: 30px;
+            background: #ccc;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .slider::before {
+            content: "";
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            left: 3px;
+            top: 3px;
+            border-radius: 50%;
+            background: white;
+            transition: 0.2s;
+        }
+
+        .switch input:checked + .slider {
+            background: #111827;
+        }
+
+        .switch input:checked + .slider::before {
+            transform: translateX(20px);
+        }
+
+        .groups-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+
+        .groups-header label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+        }
+
+        .course {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+
+        .course-header {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: #f9fafb;
+        }
+
+        .course-header label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+        }
+
+        .course-groups {
+            padding: 8px 12px 12px;
+        }
+
+        .faculty {
+            margin-top: 8px;
+        }
+
+        .faculty-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .group-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 0;
+            margin-left: 8px;
+        }
+
+        .group-language {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        button {
+            font-family: inherit;
+        }
+
+        .primary-button,
+        .secondary-button {
+            flex: 1;
+            border: none;
+            border-radius: 10px;
+            padding: 13px 16px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        .primary-button {
+            background: #111827;
+            color: white;
+        }
+
+        .secondary-button {
+            background: #e5e7eb;
+            color: #111827;
+        }
+
+        button:disabled,
+        input:disabled + .slider {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        input:disabled {
+            cursor: not-allowed;
+        }
+
+        .status {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .status.success {
+            display: block;
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status.error {
+            display: block;
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .readonly-message {
+            display: none;
+            background: #fff7ed;
+            color: #9a3412;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 16px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        @media (max-width: 600px) {
+
+            .container {
+                padding: 12px;
+            }
+
+            h1 {
+                font-size: 21px;
+            }
+
+            .card {
+                padding: 14px;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+<div class="container">
+
+    <h1>
+        Dekanat Telegram Manager
+    </h1>
+
+
+    <div
+        id="readonlyMessage"
+        class="readonly-message"
+    >
+        You can view the settings, but only the administrator
+        can make changes.
+    </div>
+
+
+    <!-- ================================================== -->
+    <!-- TABS -->
+    <!-- ================================================== -->
+
+    <div class="tabs">
+
+        <button
+            id="configurationTabButton"
+            class="tab-button active"
+            onclick="openTab('configuration')"
+        >
+            Configuration
+        </button>
+
+        <button
+            id="operationTabButton"
+            class="tab-button"
+            onclick="openTab('operation')"
+        >
+            Group Operation
+        </button>
+
+    </div>
+
+
+    <!-- ================================================== -->
+    <!-- CONFIGURATION -->
+    <!-- ================================================== -->
+
+    <div
+        id="configuration"
+        class="tab active"
+    >
+
+        <div class="card">
+
+            <div class="card-title">
+                Message Type
+            </div>
+
+
+            <label class="radio-row">
+
+                <span class="radio-left">
+
+                    <input
+                        class="admin-control message-type"
+                        type="radio"
+                        name="messageType"
+                        value="xabar"
+                    >
+
+                    <span>
+                        Inform
+                    </span>
+
+                </span>
+
+            </label>
+
+
+            <label class="radio-row">
+
+                <span class="radio-left">
+
+                    <input
+                        class="admin-control message-type"
+                        type="radio"
+                        name="messageType"
+                        value="reqdocs"
+                    >
+
+                    <span>
+                        Required documents
+                    </span>
+
+                </span>
+
+            </label>
+
+
+            <label class="radio-row">
+
+                <span class="radio-left">
+
+                    <input
+                        class="admin-control message-type"
+                        type="radio"
+                        name="messageType"
+                        value="regulations"
+                    >
+
+                    <span>
+                        Regulations
+                    </span>
+
+                </span>
+
+            </label>
+
+
+            <label class="radio-row">
+
+                <span class="radio-left">
+
+                    <input
+                        class="admin-control message-type"
+                        type="radio"
+                        name="messageType"
+                        value="links"
+                    >
+
+                    <span>
+                        Links
+                    </span>
+
+                </span>
+
+            </label>
+
+
+            <label class="radio-row">
+
+                <span class="radio-left">
+
+                    <input
+                        class="admin-control message-type"
+                        type="radio"
+                        name="messageType"
+                        value="timetable"
+                    >
+
+                    <span>
+                        Timetable
+                    </span>
+
+                </span>
+
+            </label>
+
+
+            <label class="radio-row">
+
+                <span class="radio-left">
+
+                    <input
+                        class="admin-control message-type"
+                        type="radio"
+                        name="messageType"
+                        value="faq"
+                    >
+
+                    <span>
+                        FAQ
+                    </span>
+
+                </span>
+
+            </label>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="card-title">
+                Message Mode
+            </div>
+
+            <div class="switch-row">
+
+                <span>
+                    CopyMessage
+                </span>
+
+                <label class="switch">
+
+                    <input
+                        id="copyMessageSwitch"
+                        class="admin-control"
+                        type="checkbox"
+                    >
+
+                    <span class="slider"></span>
+
+                </label>
+
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="groups-header">
+
+                <div class="card-title">
+                    Telegram Groups
+                </div>
+
+                <label>
+
+                    <input
+                        id="configAllGroups"
+                        class="admin-control"
+                        type="checkbox"
+                        onchange="toggleAllGroups('config')"
+                    >
+
+                    <span>
+                        All
+                    </span>
+
+                </label>
+
+            </div>
+
+
+            <div id="configGroupsContainer">
+
+                <div class="loading">
+                    Loading groups...
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="actions">
+
+            <button
+                id="cancelButton"
+                class="secondary-button"
+                onclick="cancelConfiguration()"
+            >
+                Cancel
+            </button>
+
+            <button
+                id="saveButton"
+                class="primary-button"
+                onclick="saveConfiguration()"
+            >
+                Save
+            </button>
+
+        </div>
+
+
+        <div
+            id="configStatus"
+            class="status"
+        ></div>
+
+    </div>
+
+
+    <!-- ================================================== -->
+    <!-- GROUP OPERATION -->
+    <!-- ================================================== -->
+
+    <div
+        id="operation"
+        class="tab"
+    >
+
+        <div class="card">
+
+            <div class="card-title">
+                Restrict Content Saving
+            </div>
+
+
+            <div class="switch-row">
+
+                <span>
+                    RestrictContentSaving
+                </span>
+
+                <label class="switch">
+
+                    <input
+                        id="contentSavingSwitch"
+                        class="admin-control"
+                        type="checkbox"
+                    >
+
+                    <span class="slider"></span>
+
+                </label>
+
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="groups-header">
+
+                <div class="card-title">
+                    Telegram Groups
+                </div>
+
+                <label>
+
+                    <input
+                        id="operationAllGroups"
+                        class="admin-control"
+                        type="checkbox"
+                        onchange="toggleAllGroups('operation')"
+                    >
+
+                    <span>
+                        All
+                    </span>
+
+                </label>
+
+            </div>
+
+
+            <div id="operationGroupsContainer">
+
+                <div class="loading">
+                    Loading groups...
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="actions">
+
+            <button
+                id="closeOperationButton"
+                class="secondary-button"
+                onclick="closeOperation()"
+            >
+                Close
+            </button>
+
+            <button
+                id="applyContentSavingButton"
+                class="primary-button"
+                onclick="applyContentSaving()"
+            >
+                Apply
+            </button>
+
+        </div>
+
+
+        <div
+            id="operationStatus"
+            class="status"
+        ></div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+    // ======================================================
+    // TELEGRAM
+    // ======================================================
+
+    const tg = window.Telegram.WebApp;
+
+    tg.ready();
+
+    tg.expand();
+
+    const telegramInitData = tg.initData;
+
+    let isAdmin = false;
+
+    let groupsData = {};
+
+    let savedConfiguration = null;
+
+    let contentSavingStatus = {};
+
+    let operationStatusLoaded = false;
+
+
+    // ======================================================
+    // AUTHENTICATION
+    // ======================================================
+
+    async function authenticateMiniApp() {
+
+        try {
+
+            const response = await fetch(
+                "/auth/me",
+                {
+                    headers: {
+                        "X-Telegram-Init-Data":
+                            telegramInitData
+                    }
+                }
+            );
+
+            if (!response.ok) {
+
+                isAdmin = false;
+
+                setReadOnlyMode();
+
+                return;
+            }
+
+
+            const data = await response.json();
+
+            isAdmin = data.is_admin === true;
+
+
+            if (isAdmin) {
+
+                enableAdminMode();
+
+                loadContentSavingStatus();
+
+            } else {
+
+                setReadOnlyMode();
+
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Authentication error:",
+                error
+            );
+
+            isAdmin = false;
+
+            setReadOnlyMode();
+        }
+    }
+
+
+    function setReadOnlyMode() {
+
+        document
+            .querySelectorAll(".admin-control")
+            .forEach(element => {
+                element.disabled = true;
+            });
+
+
+        document
+            .getElementById("saveButton")
+            .disabled = true;
+
+
+        document
+            .getElementById(
+                "applyContentSavingButton"
+            )
+            .disabled = true;
+
+
+        document
+            .getElementById(
+                "readonlyMessage"
+            )
+            .style.display = "block";
+
+    }
+
+
+    function enableAdminMode() {
+
+        document
+            .querySelectorAll(".admin-control")
+            .forEach(element => {
+                element.disabled = false;
+            });
+
+
+        document
+            .getElementById("saveButton")
+            .disabled = false;
+
+
+        document
+            .getElementById(
+                "applyContentSavingButton"
+            )
+            .disabled = false;
+
+
+        document
+            .getElementById(
+                "readonlyMessage"
+            )
+            .style.display = "none";
+    }
+
+
+    // ======================================================
+    // TABS
+    // ======================================================
+
+    function openTab(tabName) {
+
+        document
+            .querySelectorAll(".tab")
+            .forEach(tab => {
+                tab.classList.remove("active");
+            });
+
+
+        document
+            .querySelectorAll(".tab-button")
+            .forEach(button => {
+                button.classList.remove("active");
+            });
+
+
+        document
+            .getElementById(tabName)
+            .classList.add("active");
+
+
+        if (tabName === "configuration") {
+
+            document
+                .getElementById(
+                    "configurationTabButton"
+                )
+                .classList.add("active");
+
+        }
+
+
+        if (tabName === "operation") {
+
+            document
+                .getElementById(
+                    "operationTabButton"
+                )
+                .classList.add("active");
+
+
+            // IMPORTANT:
+            // Only the admin ever requests
+            // Telegram content-saving status.
+
+            if (isAdmin && !operationStatusLoaded) {
+
+                loadContentSavingStatus();
+
+            }
+
+        }
+
+    }
+
+
+    // ======================================================
+    // GROUP HTML
+    // ======================================================
+
+    function createGroupsHTML(prefix) {
+
+        let html = "";
+
+        for (
+            const [course, faculties]
+            of Object.entries(groupsData)
+        ) {
+
+            const courseId =
+                `${prefix}-course-${course}`;
+
+
+            html += `
+                <div class="course">
+
+                    <div class="course-header">
+
+                        <label>
+
+                            <input
+                                class="admin-control course-checkbox ${prefix}-course-checkbox"
+                                type="checkbox"
+                                data-course="${escapeHtml(course)}"
+                                onchange="toggleCourse(
+                                    '${prefix}',
+                                    '${escapeJs(course)}'
+                                )"
+                            >
+
+                            <span>
+                                ${escapeHtml(course)}
+                            </span>
+
+                        </label>
+
+                    </div>
+
+
+                    <div class="course-groups">
+            `;
+
+
+            for (
+                const [faculty, languages]
+                of Object.entries(faculties)
+            ) {
+
+                html += `
+                    <div class="faculty">
+
+                        <div class="faculty-name">
+                            ${escapeHtml(faculty)}
+                        </div>
+                `;
+
+
+                for (
+                    const [language, groupData]
+                    of Object.entries(languages)
+                ) {
+
+                    const groupId =
+                        `${prefix}-${course}-${faculty}-${language}`
+                            .replace(
+                                /[^a-zA-Z0-9_-]/g,
+                                "_"
+                            );
+
+
+                    const displayLanguage =
+                        language === "qq"
+                            ? "kk"
+                            : language;
+
+
+                    html += `
+                        <label class="group-row">
+
+                            <input
+                                class="admin-control group-checkbox ${prefix}-group-checkbox"
+                                id="${groupId}"
+                                type="checkbox"
+                                data-course="${escapeHtml(course)}"
+                                data-faculty="${escapeHtml(faculty)}"
+                                data-language="${escapeHtml(language)}"
+                                onchange="groupCheckboxChanged(
+                                    '${prefix}'
+                                )"
+                            >
+
+                            <span>
+                                ${escapeHtml(
+                                    displayLanguage
+                                )}
+                            </span>
+
+                        </label>
+                    `;
+                }
+
+
+                html += `
+                    </div>
+                `;
+            }
+
+
+            html += `
+                    </div>
+
+                </div>
+            `;
+        }
+
+
+        return html;
+    }
+
+
+    function escapeHtml(value) {
+
+        return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+
+    function escapeJs(value) {
+
+        return String(value)
+            .replaceAll("\\", "\\\\")
+            .replaceAll("'", "\\'");
+    }
+
+
+    // ======================================================
+    // LOAD GROUPS
+    // ======================================================
+
+    async function loadConfiguration() {
+
+        try {
+
+            const response = await fetch(
+                "/config"
+            );
+
+            const config =
+                await response.json();
+
+
+            savedConfiguration =
+                JSON.parse(
+                    JSON.stringify(config)
+                );
+
+
+            document
+                .getElementById(
+                    "configGroupsContainer"
+                )
+                .innerHTML =
+                    createGroupsHTML(
+                        "config"
+                    );
+
+
+            document
+                .getElementById(
+                    "operationGroupsContainer"
+                )
+                .innerHTML =
+                    createGroupsHTML(
+                        "operation"
+                    );
+
+
+            applySavedSelection(
+                config
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "Could not load configuration:",
+                error
+            );
+
+        }
+
+    }
+
+
+    // ======================================================
+    // CONFIG SELECTION
+    // ======================================================
+
+    function applySavedSelection(config) {
+
+        document
+            .querySelectorAll(
+                ".message-type"
+            )
+            .forEach(radio => {
+
+                radio.checked =
+                    radio.value ===
+                    config.message_type;
+
+            });
+
+
+        document
+            .getElementById(
+                "copyMessageSwitch"
+            )
+            .checked =
+                config.copy_message === true;
+
+
+        // First clear everything.
+
+        document
+            .querySelectorAll(
+                ".config-group-checkbox"
+            )
+            .forEach(
+                checkbox => {
+                    checkbox.checked = false;
+                }
+            );
+
+
+        // Apply selected groups.
+
+        const selectedGroups =
+            config.groups || {};
+
+
+        for (
+            const [course, groups]
+            of Object.entries(
+                selectedGroups
+            )
+        ) {
+
+            if (!Array.isArray(groups)) {
+                continue;
+            }
+
+
+            groups.forEach(groupKey => {
+
+                const parts =
+                    groupKey.split("|");
+
+
+                if (parts.length !== 2) {
+                    return;
+                }
+
+
+                const faculty =
+                    parts[0];
+
+                const language =
+                    parts[1];
+
+
+                const checkbox =
+                    document.querySelector(
+                        `.config-group-checkbox[data-course="${cssEscape(course)}"][data-faculty="${cssEscape(faculty)}"][data-language="${cssEscape(language)}"]`
+                    );
+
+
+                if (checkbox) {
+                    checkbox.checked = true;
+                }
+
+            });
+
+        }
+
+
+        updateAllCheckbox(
+            "config"
+        );
+
+        updateCourseCheckboxes(
+            "config"
+        );
+
+    }
+
+
+    function cssEscape(value) {
+
+        if (
+            window.CSS &&
+            typeof window.CSS.escape === "function"
+        ) {
+            return window.CSS.escape(
+                String(value)
+            );
+        }
+
+        return String(value)
+            .replace(
+                /["\\]/g,
+                "\\$&"
+            );
+    }
+
+
+    // ======================================================
+    // ALL CHECKBOX
+    // ======================================================
+
+    function toggleAllGroups(prefix) {
+
+        const allCheckbox =
+            document.getElementById(
+                prefix === "config"
+                    ? "configAllGroups"
+                    : "operationAllGroups"
+            );
+
+
+        const checkboxes =
+            document.querySelectorAll(
+                `.${prefix}-group-checkbox`
+            );
+
+
+        checkboxes.forEach(
+            checkbox => {
+                checkbox.checked =
+                    allCheckbox.checked;
+            }
+        );
+
+
+        updateCourseCheckboxes(
+            prefix
+        );
+
+        updateAllCheckbox(
+            prefix
+        );
+
+    }
+
+
+    function groupCheckboxChanged(prefix) {
+
+        updateCourseCheckboxes(
+            prefix
+        );
+
+        updateAllCheckbox(
+            prefix
+        );
+
+    }
+
+
+    // ======================================================
+    // COURSE CHECKBOX
+    // ======================================================
+
+    function toggleCourse(
+        prefix,
+        course
+    ) {
+
+        const courseCheckbox =
+            document.querySelector(
+                `.${prefix}-course-checkbox[data-course="${cssEscape(course)}"]`
+            );
+
+
+        const groups =
+            document.querySelectorAll(
+                `.${prefix}-group-checkbox[data-course="${cssEscape(course)}"]`
+            );
+
+
+        groups.forEach(
+            checkbox => {
+                checkbox.checked =
+                    courseCheckbox.checked;
+            }
+        );
+
+
+        updateAllCheckbox(
+            prefix
+        );
+
+    }
+
+
+    function updateCourseCheckboxes(prefix) {
+
+        document
+            .querySelectorAll(
+                `.${prefix}-course-checkbox`
+            )
+            .forEach(courseCheckbox => {
+
+                const course =
+                    courseCheckbox.dataset.course;
+
+
+                const groups =
+                    document.querySelectorAll(
+                        `.${prefix}-group-checkbox[data-course="${cssEscape(course)}"]`
+                    );
+
+
+                if (groups.length === 0) {
+                    return;
+                }
+
+
+                const checked =
+                    Array.from(
+                        groups
+                    ).filter(
+                        checkbox =>
+                            checkbox.checked
+                    ).length;
+
+
+                courseCheckbox.checked =
+                    checked === groups.length;
+
+
+                courseCheckbox.indeterminate =
+                    checked > 0 &&
+                    checked < groups.length;
+
+            });
+
+    }
+
+
+    function updateAllCheckbox(prefix) {
+
+        const allCheckbox =
+            document.getElementById(
+                prefix === "config"
+                    ? "configAllGroups"
+                    : "operationAllGroups"
+            );
+
+
+        const groups =
+            document.querySelectorAll(
+                `.${prefix}-group-checkbox`
+            );
+
+
+        if (groups.length === 0) {
+
+            allCheckbox.checked = false;
+
+            allCheckbox.indeterminate = false;
+
+            return;
+        }
+
+
+        const checked =
+            Array.from(groups)
+                .filter(
+                    checkbox =>
+                        checkbox.checked
+                )
+                .length;
+
+
+        allCheckbox.checked =
+            checked === groups.length;
+
+
+        allCheckbox.indeterminate =
+            checked > 0 &&
+            checked < groups.length;
+
+    }
+
+
+    // ======================================================
+    // GET CONFIG GROUPS
+    // ======================================================
+
+    function getConfigurationGroups() {
+
+        const result = {};
+
+
+        document
+            .querySelectorAll(
+                ".config-group-checkbox:checked"
+            )
+            .forEach(
+                checkbox => {
+
+                    const course =
+                        checkbox.dataset.course;
+
+                    const faculty =
+                        checkbox.dataset.faculty;
+
+                    const language =
+                        checkbox.dataset.language;
+
+
+                    if (!result[course]) {
+                        result[course] = [];
+                    }
+
+
+                    result[course].push(
+                        `${faculty}|${language}`
+                    );
+
+                }
+            );
+
+
+        return result;
+    }
+
+
+    // ======================================================
+    // SAVE
+    // ======================================================
+
+    async function saveConfiguration() {
+
+        if (!isAdmin) {
+
+            showStatus(
+                "configStatus",
+                "Access denied.",
+                false
+            );
+
+            return;
+        }
+
+
+        const selectedType =
+            document.querySelector(
+                ".message-type:checked"
+            );
+
+
+        if (!selectedType) {
+
+            showStatus(
+                "configStatus",
+                "Please select a message type.",
+                false
+            );
+
+            return;
+        }
+
+
+        const copyMessage =
+            document
+                .getElementById(
+                    "copyMessageSwitch"
+                )
+                .checked;
+
+
+        const groups =
+            getConfigurationGroups();
+
+
+        try {
+
+            const response =
+                await fetch(
+                    "/save",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+
+                            "X-Telegram-Init-Data":
+                                telegramInitData
+                        },
+
+                        body: JSON.stringify({
+                            message_type:
+                                selectedType.value,
+
+                            copy_message:
+                                copyMessage,
+
+                            groups:
+                                groups
+                        })
+                    }
+                );
+
+
+            const data =
+                await response.json();
+
+
+            if (!response.ok) {
+
+                showStatus(
+                    "configStatus",
+                    data.error ||
+                        "Save failed.",
+                    false
+                );
+
+                return;
+            }
+
+
+            savedConfiguration =
+                data.config;
+
+
+            showStatus(
+                "configStatus",
+                "Configuration saved successfully.",
+                true
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "Save error:",
+                error
+            );
+
+
+            showStatus(
+                "configStatus",
+                "Could not save configuration.",
+                false
+            );
+        }
+
+    }
+
+
+    // ======================================================
+    // CANCEL
+    // ======================================================
+
+    function cancelConfiguration() {
+
+        if (!savedConfiguration) {
+            return;
+        }
+
+
+        applySavedSelection(
+            savedConfiguration
+        );
+
+
+        showStatus(
+            "configStatus",
+            "",
+            true
+        );
+
+    }
+
+
+    // ======================================================
+    // OPERATION STATUS
+    // ======================================================
+
+    async function loadContentSavingStatus() {
+
+        // Non-admin users must never request
+        // the Telegram status.
+
+        if (!isAdmin) {
+            return;
+        }
+
+
+        try {
+
+            const response =
+                await fetch(
+                    "/content-saving-status",
+                    {
+                        headers: {
+                            "X-Telegram-Init-Data":
+                                telegramInitData
+                        }
+                    }
+                );
+
+
+            if (!response.ok) {
+
+                console.error(
+                    "Could not load content saving status"
+                );
+
+                return;
+            }
+
+
+            const data =
+                await response.json();
+
+
+            if (!data.success) {
+                return;
+            }
+
+
+            contentSavingStatus =
+                data.status || {};
+
+
+            operationStatusLoaded =
+                true;
+
+
+            applyContentSavingStatus();
+
+
+        } catch (error) {
+
+            console.error(
+                "Content saving status error:",
+                error
+            );
+
+        }
+
+    }
+
+
+    function applyContentSavingStatus() {
+
+        document
+            .querySelectorAll(
+                ".operation-group-checkbox"
+            )
+            .forEach(checkbox => {
+
+                const course =
+                    checkbox.dataset.course;
+
+                const faculty =
+                    checkbox.dataset.faculty;
+
+                const language =
+                    checkbox.dataset.language;
+
+
+                const status =
+                    contentSavingStatus?.[
+                        course
+                    ]?.[
+                        faculty
+                    ]?.[
+                        language
+                    ] === true;
+
+
+                checkbox.checked =
+                    status;
+
+            });
+
+
+        updateCourseCheckboxes(
+            "operation"
+        );
+
+        updateAllCheckbox(
+            "operation"
+        );
+
+
+        // We don't automatically set the switch
+        // based on all groups because selected groups
+        // may have different states.
+    }
+
+
+    // ======================================================
+    // OPERATION GROUPS
+    // ======================================================
+
+    function getOperationGroups() {
+
+        const result = [];
+
+
+        document
+            .querySelectorAll(
+                ".operation-group-checkbox:checked"
+            )
+            .forEach(
+                checkbox => {
+
+                    result.push({
+                        course:
+                            checkbox.dataset.course,
+
+                        faculty:
+                            checkbox.dataset.faculty,
+
+                        language:
+                            checkbox.dataset.language
+                    });
+
+                }
+            );
+
+
+        return result;
+    }
+
+
+    // ======================================================
+    // APPLY CONTENT SAVING
+    // ======================================================
+
+    async function applyContentSaving() {
+
+        if (!isAdmin) {
+
+            showStatus(
+                "operationStatus",
+                "Access denied.",
+                false
+            );
+
+            return;
+        }
+
+
+        const groups =
+            getOperationGroups();
+
+
+        if (groups.length === 0) {
+
+            showStatus(
+                "operationStatus",
+                "Please select at least one group.",
+                false
+            );
+
+            return;
+        }
+
+
+        const enabled =
+            document
+                .getElementById(
+                    "contentSavingSwitch"
+                )
+                .checked;
+
+
+        try {
+
+            const response =
+                await fetch(
+                    "/apply-content-saving",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+
+                            "X-Telegram-Init-Data":
+                                telegramInitData
+                        },
+
+                        body: JSON.stringify({
+                            groups:
+                                groups,
+
+                            enabled:
+                                enabled
+                        })
+                    }
+                );
+
+
+            const data =
+                await response.json();
+
+
+            if (!response.ok) {
+
+                showStatus(
+                    "operationStatus",
+                    data.error ||
+                        "Apply failed.",
+                    false
+                );
+
+                return;
+            }
+
+
+            const failed =
+                (data.results || [])
+                    .filter(
+                        item =>
+                            !item.success
+                    );
+
+
+            if (failed.length === 0) {
+
+                showStatus(
+                    "operationStatus",
+                    enabled
+                        ? "Content saving restriction enabled."
+                        : "Content saving restriction disabled.",
+                    true
+                );
+
+            } else {
+
+                showStatus(
+                    "operationStatus",
+                    `Completed with ${failed.length} error(s).`,
+                    false
+                );
+
+            }
+
+
+            // Refresh real Telegram state.
+
+            operationStatusLoaded = false;
+
+            await loadContentSavingStatus();
+
+
+        } catch (error) {
+
+            console.error(
+                "Apply error:",
+                error
+            );
+
+
+            showStatus(
+                "operationStatus",
+                "Could not apply changes.",
+                false
+            );
+
+        }
+
+    }
+
+
+    // ======================================================
+    // CLOSE OPERATION
+    // ======================================================
+
+    function closeOperation() {
+
+        // Nothing is sent to the server here.
+
+        openTab(
+            "configuration"
+        );
+
+    }
+
+
+    // ======================================================
+    // STATUS MESSAGE
+    // ======================================================
+
+    function showStatus(
+        elementId,
+        message,
+        success
+    ) {
+
+        const element =
+            document.getElementById(
+                elementId
+            );
+
+
+        if (!message) {
+
+            element.className =
+                "status";
+
+            element.textContent = "";
+
+            return;
+        }
+
+
+        element.textContent =
+            message;
+
+
+        element.className =
+            success
+                ? "status success"
+                : "status error";
+
+    }
+
+
+    // ======================================================
+    // INITIALIZATION
+    // ======================================================
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        async function() {
+
+            await loadConfiguration();
+
+            await authenticateMiniApp();
+
+        }
+    );
+
+</script>
+
+</body>
+
+</html>
