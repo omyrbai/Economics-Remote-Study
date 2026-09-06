@@ -5,7 +5,7 @@ import hmac
 import hashlib
 import asyncio
 import threading
-from secrets import randbits
+from secrets import randbelow
 from urllib.parse import parse_qsl
 
 from flask import Flask, render_template, request, jsonify
@@ -375,7 +375,7 @@ async def distribute_message(message):
                         functions.messages.ForwardMessagesRequest(
                             from_peer=source_peer,
                             id=[message.id],
-                            random_id=[randbits(64)],
+                            random_id=[randbelow(2**63)],
                             to_peer=entity,
                             top_msg_id=topic_id,
                         )
