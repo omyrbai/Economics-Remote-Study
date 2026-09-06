@@ -48,6 +48,12 @@ client = TelegramClient(
     API_HASH
 )
 
+bot_client = TelegramClient(
+    "dekanat_bot",
+    API_ID,
+    API_HASH
+)
+
 telegram_loop = None
 telegram_ready = threading.Event()
 telegram_account_id = None
@@ -387,6 +393,42 @@ async def distribute_message(message):
                     f"{course}|{faculty}|{language}: "
                     f"{error}"
                 )
+
+# ============================================================
+# BOT MESSAGE RECEIVER
+# ============================================================
+
+@bot_client.on(events.NewMessage(incoming=True))
+async def bot_message_handler(event):
+
+    sender = await event.get_sender()
+
+    if not sender:
+        return
+
+    sender_id = sender.id
+
+    print(
+        f"Bot received message: "
+        f"sender_id={sender_id}, "
+        f"message_id={event.message.id}"
+    )
+
+    # Only the configured administrator is allowed
+    # to trigger message distribution.
+    if sender_id != ADMIN_ID:
+
+        print(
+            f"Ignoring message from unauthorized user: "
+            f"{sender_id}"
+        )
+
+        return
+
+    print(
+        f"Accepted message from administrator: "
+        f"{sender_id}"
+    )
 
 
 # ============================================================
@@ -1043,6 +1085,12 @@ def start_telegram():
         telegram_loop = asyncio.get_running_loop()
 
         await client.connect()
+
+        await bot_client.start(
+            bot_token=BOT_TOKEN
+        )
+        print("Telegram bot connected.")
+
 
         if not await client.is_user_authorized():
 
