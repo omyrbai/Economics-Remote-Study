@@ -1,521 +1,474 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>Dekanat Telegram Manager</title>
+    <title>Dekanat Distribution</title>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
     <style>
-
         * {
             box-sizing: border-box;
         }
 
+        html,
         body {
             margin: 0;
             padding: 0;
-            background: #f4f5f7;
-            color: #222;
-            font-family:
-                -apple-system,
-                BlinkMacSystemFont,
-                "Segoe UI",
-                Roboto,
-                Arial,
-                sans-serif;
+            width: 100%;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f5f6f8;
+            color: #202124;
+            font-size: 14px;
         }
 
         .container {
             width: 100%;
-            max-width: 900px;
+            max-width: 920px;
             margin: 0 auto;
-            padding: 20px;
-        }
-
-        h1 {
-            margin: 0 0 20px;
-            font-size: 24px;
+            padding: 8px;
         }
 
         .tabs {
             display: flex;
-            gap: 8px;
-            margin-bottom: 20px;
-        }
-
-        .tab-button {
-            flex: 1;
-            border: none;
-            padding: 12px 16px;
-            border-radius: 10px;
-            background: #e5e7eb;
-            cursor: pointer;
-            font-size: 15px;
-        }
-
-        .tab-button.active {
-            background: #111827;
-            color: white;
+            height: 36px;
+            background: white;
+            border-radius: 9px 9px 0 0;
+            overflow: hidden;
+            border-bottom: 1px solid #d9dce1;
         }
 
         .tab {
-            display: none;
+            flex: 1;
+            border: none;
+            background: white;
+            font-size: 14px;
+            cursor: pointer;
+            color: #555;
+            border-bottom: 2px solid transparent;
         }
 
         .tab.active {
-            display: block;
-        }
-
-        .card {
-            background: white;
-            border-radius: 14px;
-            padding: 18px;
-            margin-bottom: 16px;
-            box-shadow:
-                0 1px 3px rgba(0, 0, 0, 0.08);
-        }
-
-        .card-title {
-            font-size: 18px;
+            color: #111;
             font-weight: 600;
-            margin-bottom: 14px;
+            border-bottom-color: #222;
         }
 
-        .radio-row,
+        .tab:hover {
+            background: #fafafa;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 0 0 9px 9px;
+            padding: 10px 12px;
+            min-height: 500px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 2px 0 10px;
+        }
+
+        .subsection {
+            border-top: 1px solid #e1e4e8;
+            padding-top: 9px;
+            margin-top: 9px;
+        }
+
+        .subsection:first-child {
+            border-top: none;
+            padding-top: 0;
+            margin-top: 0;
+        }
+
+        .subsection-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .message-types {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px 18px;
+        }
+
+        .radio-row {
+            display: flex;
+            align-items: center;
+            min-height: 27px;
+            cursor: pointer;
+        }
+
+        .radio-row input {
+            margin: 0 7px 0 0;
+            width: 15px;
+            height: 15px;
+            cursor: pointer;
+        }
+
         .switch-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid #eee;
+            min-height: 32px;
         }
 
-        .radio-row:last-child,
-        .switch-row:last-child {
-            border-bottom: none;
+        .switch-label {
+            font-weight: 600;
         }
 
-        .radio-left {
+        .switch-area {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 7px;
         }
 
-        input[type="radio"],
-        input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
+        .switch-word {
+            font-size: 12px;
+            color: #555;
         }
 
         .switch {
             position: relative;
-            width: 48px;
-            height: 28px;
+            width: 40px;
+            height: 23px;
+            display: inline-block;
         }
 
         .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
+            display: none;
         }
 
         .slider {
             position: absolute;
             inset: 0;
-            border-radius: 30px;
-            background: #ccc;
+            background: #bfc3c8;
+            border-radius: 20px;
             cursor: pointer;
-            transition: 0.2s;
+            transition: 0.15s;
         }
 
-        .slider::before {
+        .slider:before {
             content: "";
             position: absolute;
-            width: 22px;
-            height: 22px;
+            width: 17px;
+            height: 17px;
             left: 3px;
             top: 3px;
-            border-radius: 50%;
             background: white;
-            transition: 0.2s;
+            border-radius: 50%;
+            transition: 0.15s;
         }
 
         .switch input:checked + .slider {
-            background: #111827;
+            background: #2563eb;
         }
 
-        .switch input:checked + .slider::before {
-            transform: translateX(20px);
+        .switch input:checked + .slider:before {
+            transform: translateX(17px);
         }
 
-        .groups-header {
+        .admin-disabled {
+            opacity: 0.55;
+        }
+
+        .groups-title-row {
             display: flex;
-            align-items: center;
             justify-content: space-between;
-            margin-bottom: 14px;
+            align-items: center;
+            margin-bottom: 8px;
         }
 
-        .groups-header label {
-            display: flex;
-            align-items: center;
-            gap: 10px;
+        .groups-title {
+            font-size: 15px;
             font-weight: 600;
         }
 
-        .course {
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            margin-bottom: 12px;
+        .all-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .all-row input {
+            width: 17px;
+            height: 17px;
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .course-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .course-card {
+            border: 1px solid #dfe2e6;
+            border-radius: 7px;
             overflow: hidden;
+            background: white;
         }
 
         .course-header {
+            min-height: 35px;
             display: flex;
             align-items: center;
-            padding: 12px;
-            background: #f9fafb;
+            padding: 4px 10px;
+            background: #fafafa;
+            border-bottom: 1px solid #e5e7eb;
         }
 
-        .course-header label {
-            display: flex;
-            align-items: center;
-            gap: 10px;
+        .course-header input {
+            width: 17px;
+            height: 17px;
+            margin: 0 8px 0 0;
+            cursor: pointer;
+        }
+
+        .course-name {
             font-weight: 600;
+            font-size: 13px;
+            user-select: none;
         }
 
         .course-groups {
-            padding: 8px 12px 12px;
-        }
-
-        .faculty {
-            margin-top: 8px;
-        }
-
-        .faculty-name {
-            font-weight: 600;
-            margin-bottom: 5px;
+            padding: 3px 0;
         }
 
         .group-row {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 7px 0;
-            margin-left: 8px;
+            min-height: 31px;
+            padding: 2px 9px 2px 28px;
+            cursor: pointer;
+        }
+
+        .group-row:hover {
+            background: #f8f9fa;
+        }
+
+        .group-row input {
+            width: 16px;
+            height: 16px;
+            margin: 0 8px 0 0;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
+        .group-name {
+            font-size: 12px;
+            color: #444;
+            user-select: none;
         }
 
         .group-language {
-            color: #666;
-            font-size: 14px;
+            color: #777;
         }
 
         .actions {
             display: flex;
-            gap: 10px;
-            margin-top: 18px;
+            justify-content: flex-end;
+            gap: 6px;
+            margin-top: 9px;
+            padding-top: 8px;
+            border-top: 1px solid #e1e4e8;
         }
 
-        button {
-            font-family: inherit;
-        }
-
-        .primary-button,
-        .secondary-button {
-            flex: 1;
-            border: none;
-            border-radius: 10px;
-            padding: 13px 16px;
-            font-size: 15px;
+        button.action {
+            height: 33px;
+            padding: 0 14px;
+            border-radius: 6px;
+            border: 1px solid #d1d5db;
+            font-size: 13px;
             cursor: pointer;
         }
 
-        .primary-button {
-            background: #111827;
+        .close-btn {
+            background: white;
+            color: #444;
+        }
+
+        .close-btn:hover {
+            background: #f3f4f6;
+        }
+
+        .save-btn,
+        .apply-btn {
+            background: #2563eb;
             color: white;
+            border-color: #2563eb !important;
         }
 
-        .secondary-button {
-            background: #e5e7eb;
-            color: #111827;
+        .save-btn:hover,
+        .apply-btn:hover {
+            background: #1d4ed8;
         }
 
-        button:disabled,
-        input:disabled + .slider {
+        button:disabled {
+            cursor: not-allowed;
             opacity: 0.45;
-            cursor: not-allowed;
         }
 
-        input:disabled {
-            cursor: not-allowed;
+        .bottom-status {
+            text-align: right;
+            font-size: 12px;
+            color: #777;
+            margin-top: 5px;
+            min-height: 16px;
         }
 
-        .status {
-            margin-top: 15px;
-            padding: 12px;
-            border-radius: 10px;
-            display: none;
+        .bottom-status.unsaved {
+            color: #d97706;
+            font-weight: 600;
         }
 
-        .status.success {
-            display: block;
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .status.error {
-            display: block;
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .readonly-message {
-            display: none;
-            background: #fff7ed;
-            color: #9a3412;
-            padding: 12px;
-            border-radius: 10px;
-            margin-bottom: 16px;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #666;
+        .telegram-status {
+            text-align: right;
+            font-size: 12px;
+            color: #777;
+            min-height: 16px;
         }
 
         @media (max-width: 600px) {
-
             .container {
-                padding: 12px;
+                padding: 5px;
             }
 
-            h1 {
-                font-size: 21px;
+            .panel {
+                padding: 8px;
             }
 
-            .card {
-                padding: 14px;
+            .message-types {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 4px 8px;
             }
 
+            .course-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .group-row {
+                padding-left: 25px;
+            }
         }
-
     </style>
-
 </head>
-
 
 <body>
 
 <div class="container">
 
-    <h1>
-        Dekanat Telegram Manager
-    </h1>
-
-
-    <div
-        id="readonlyMessage"
-        class="readonly-message"
-    >
-        You can view the settings, but only the administrator
-        can make changes.
-    </div>
-
-
-    <!-- ================================================== -->
-    <!-- TABS -->
-    <!-- ================================================== -->
-
     <div class="tabs">
 
         <button
-            id="configurationTabButton"
-            class="tab-button active"
+            id="configurationTab"
+            class="tab active"
             onclick="openTab('configuration')"
         >
             Configuration
         </button>
 
         <button
-            id="operationTabButton"
-            class="tab-button"
+            id="operationTab"
+            class="tab"
             onclick="openTab('operation')"
         >
-            Group Operation
+            Group operation
         </button>
 
     </div>
 
 
-    <!-- ================================================== -->
-    <!-- CONFIGURATION -->
-    <!-- ================================================== -->
+    <!-- =====================================================
+         CONFIGURATION
+         ===================================================== -->
 
     <div
-        id="configuration"
-        class="tab active"
+        id="configurationPanel"
+        class="panel"
     >
 
-        <div class="card">
+        <div class="section-title">
+            Configuration
+        </div>
 
-            <div class="card-title">
-                Message Type
+
+        <div class="subsection">
+
+            <div class="subsection-title">
+                Message type
             </div>
 
+            <div class="message-types admin-control">
 
-            <label class="radio-row">
-
-                <span class="radio-left">
-
+                <label class="radio-row">
                     <input
-                        class="admin-control message-type"
                         type="radio"
                         name="messageType"
                         value="xabar"
                     >
+                    Inform
+                </label>
 
-                    <span>
-                        Inform
-                    </span>
-
-                </span>
-
-            </label>
-
-
-            <label class="radio-row">
-
-                <span class="radio-left">
-
+                <label class="radio-row">
                     <input
-                        class="admin-control message-type"
                         type="radio"
                         name="messageType"
                         value="reqdocs"
                     >
+                    Required documents
+                </label>
 
-                    <span>
-                        Required documents
-                    </span>
-
-                </span>
-
-            </label>
-
-
-            <label class="radio-row">
-
-                <span class="radio-left">
-
+                <label class="radio-row">
                     <input
-                        class="admin-control message-type"
                         type="radio"
                         name="messageType"
                         value="regulations"
                     >
+                    Regulations
+                </label>
 
-                    <span>
-                        Regulations
-                    </span>
-
-                </span>
-
-            </label>
-
-
-            <label class="radio-row">
-
-                <span class="radio-left">
-
+                <label class="radio-row">
                     <input
-                        class="admin-control message-type"
                         type="radio"
                         name="messageType"
                         value="links"
                     >
+                    Links
+                </label>
 
-                    <span>
-                        Links
-                    </span>
-
-                </span>
-
-            </label>
-
-
-            <label class="radio-row">
-
-                <span class="radio-left">
-
+                <label class="radio-row">
                     <input
-                        class="admin-control message-type"
                         type="radio"
                         name="messageType"
                         value="timetable"
                     >
+                    Timetable
+                </label>
 
-                    <span>
-                        Timetable
-                    </span>
-
-                </span>
-
-            </label>
-
-
-            <label class="radio-row">
-
-                <span class="radio-left">
-
+                <label class="radio-row">
                     <input
-                        class="admin-control message-type"
                         type="radio"
                         name="messageType"
                         value="faq"
                     >
-
-                    <span>
-                        FAQ
-                    </span>
-
-                </span>
-
-            </label>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="card-title">
-                Message Mode
-            </div>
-
-            <div class="switch-row">
-
-                <span>
-                    CopyMessage
-                </span>
-
-                <label class="switch">
-
-                    <input
-                        id="copyMessageSwitch"
-                        class="admin-control"
-                        type="checkbox"
-                    >
-
-                    <span class="slider"></span>
-
+                    FAQ
                 </label>
 
             </div>
@@ -523,37 +476,145 @@
         </div>
 
 
-        <div class="card">
+        <div class="subsection">
 
-            <div class="groups-header">
+            <div class="switch-row admin-control">
 
-                <div class="card-title">
+                <span class="switch-label">
+                    CopyMessage
+                </span>
+
+                <div class="switch-area">
+
+                    <span class="switch-word">
+                        OFF
+                    </span>
+
+                    <label class="switch">
+
+                        <input
+                            type="checkbox"
+                            id="copyMessage"
+                        >
+
+                        <span class="slider"></span>
+
+                    </label>
+
+                    <span class="switch-word">
+                        ON
+                    </span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="subsection">
+
+            <div class="groups-title-row">
+
+                <div class="groups-title">
                     Telegram Groups
                 </div>
 
-                <label>
-
-                    <input
-                        id="configAllGroups"
-                        class="admin-control"
-                        type="checkbox"
-                        onchange="toggleAllGroups('config')"
-                    >
+                <label class="all-row admin-control">
 
                     <span>
                         All
                     </span>
 
+                    <input
+                        type="checkbox"
+                        id="configAll"
+                        onchange="allChanged('config')"
+                    >
+
                 </label>
 
             </div>
 
 
-            <div id="configGroupsContainer">
+            <div
+                id="configCourseGrid"
+                class="course-grid"
+            >
 
-                <div class="loading">
-                    Loading groups...
+                {% for course, faculties in groups.items() %}
+
+                <div
+                    class="course-card"
+                    data-course="{{ course }}"
+                    data-section="config"
+                >
+
+                    <div class="course-header">
+
+                        <input
+                            type="checkbox"
+                            class="course-checkbox"
+                            data-section="config"
+                            data-course="{{ course }}"
+                            onchange="courseChanged('config', '{{ course }}')"
+                        >
+
+                        <span class="course-name">
+
+                            {% if course == "2022" %}
+                                2022
+                            {% else %}
+                                {{ course }}-year
+                            {% endif %}
+
+                        </span>
+
+                    </div>
+
+
+                    <div class="course-groups">
+
+                        {% for faculty, languages in faculties.items() %}
+
+                            {% for language, data in languages.items() %}
+
+                            <label class="group-row">
+
+                                <input
+                                    type="checkbox"
+                                    class="group-checkbox"
+                                    data-section="config"
+                                    data-course="{{ course }}"
+                                    data-faculty="{{ faculty }}"
+                                    data-language="{{ language }}"
+                                    onchange="groupChanged('config', '{{ course }}')"
+                                >
+
+                                <span class="group-name">
+                                    {{ faculty }}
+                                    <span class="group-language">
+                                        (
+                                        {% if language == "qq" %}
+                                            kk
+                                        {% else %}
+                                            {{ language }}
+                                        {% endif %}
+                                        )
+                                    </span>
+                                </span>
+
+                            </label>
+
+                            {% endfor %}
+
+                        {% endfor %}
+
+                    </div>
+
                 </div>
+
+                {% endfor %}
 
             </div>
 
@@ -563,16 +624,17 @@
         <div class="actions">
 
             <button
-                id="cancelButton"
-                class="secondary-button"
+                type="button"
+                class="action close-btn"
                 onclick="cancelConfiguration()"
             >
                 Cancel
             </button>
 
             <button
+                type="button"
+                class="action save-btn admin-control"
                 id="saveButton"
-                class="primary-button"
                 onclick="saveConfiguration()"
             >
                 Save
@@ -583,82 +645,170 @@
 
         <div
             id="configStatus"
-            class="status"
-        ></div>
+            class="bottom-status"
+        >
+            Saved
+        </div>
 
     </div>
 
 
-    <!-- ================================================== -->
-    <!-- GROUP OPERATION -->
-    <!-- ================================================== -->
+    <!-- =====================================================
+         GROUP OPERATION
+         ===================================================== -->
 
     <div
-        id="operation"
-        class="tab"
+        id="operationPanel"
+        class="panel hidden"
     >
 
-        <div class="card">
-
-            <div class="card-title">
-                Restrict Content Saving
-            </div>
+        <div class="section-title">
+            Telegram Group Operation
+        </div>
 
 
-            <div class="switch-row">
+        <div class="subsection">
 
-                <span>
+            <div
+                id="operationSwitchRow"
+                class="switch-row admin-control"
+            >
+
+                <span class="switch-label">
                     RestrictContentSaving
                 </span>
 
-                <label class="switch">
+                <div class="switch-area">
 
-                    <input
-                        id="contentSavingSwitch"
-                        class="admin-control"
-                        type="checkbox"
-                    >
+                    <span class="switch-word">
+                        OFF
+                    </span>
 
-                    <span class="slider"></span>
+                    <label class="switch">
 
-                </label>
+                        <input
+                            type="checkbox"
+                            id="restrictContentSaving"
+                        >
+
+                        <span class="slider"></span>
+
+                    </label>
+
+                    <span class="switch-word">
+                        ON
+                    </span>
+
+                </div>
 
             </div>
 
         </div>
 
 
-        <div class="card">
+        <div class="subsection">
 
-            <div class="groups-header">
+            <div class="groups-title-row">
 
-                <div class="card-title">
+                <div class="groups-title">
                     Telegram Groups
                 </div>
 
-                <label>
-
-                    <input
-                        id="operationAllGroups"
-                        class="admin-control"
-                        type="checkbox"
-                        onchange="toggleAllGroups('operation')"
-                    >
+                <label class="all-row admin-control">
 
                     <span>
                         All
                     </span>
+
+                    <input
+                        type="checkbox"
+                        id="operationAll"
+                        onchange="allChanged('operation')"
+                    >
 
                 </label>
 
             </div>
 
 
-            <div id="operationGroupsContainer">
+            <div
+                id="operationCourseGrid"
+                class="course-grid"
+            >
 
-                <div class="loading">
-                    Loading groups...
+                {% for course, faculties in groups.items() %}
+
+                <div
+                    class="course-card"
+                    data-course="{{ course }}"
+                    data-section="operation"
+                >
+
+                    <div class="course-header">
+
+                        <input
+                            type="checkbox"
+                            class="course-checkbox"
+                            data-section="operation"
+                            data-course="{{ course }}"
+                            onchange="courseChanged('operation', '{{ course }}')"
+                        >
+
+                        <span class="course-name">
+
+                            {% if course == "2022" %}
+                                2022
+                            {% else %}
+                                {{ course }}-year
+                            {% endif %}
+
+                        </span>
+
+                    </div>
+
+
+                    <div class="course-groups">
+
+                        {% for faculty, languages in faculties.items() %}
+
+                            {% for language, data in languages.items() %}
+
+                            <label class="group-row">
+
+                                <input
+                                    type="checkbox"
+                                    class="group-checkbox"
+                                    data-section="operation"
+                                    data-course="{{ course }}"
+                                    data-faculty="{{ faculty }}"
+                                    data-language="{{ language }}"
+                                    onchange="groupChanged('operation', '{{ course }}')"
+                                >
+
+                                <span class="group-name">
+                                    {{ faculty }}
+                                    <span class="group-language">
+                                        (
+                                        {% if language == "qq" %}
+                                            kk
+                                        {% else %}
+                                            {{ language }}
+                                        {% endif %}
+                                        )
+                                    </span>
+                                </span>
+
+                            </label>
+
+                            {% endfor %}
+
+                        {% endfor %}
+
+                    </div>
+
                 </div>
+
+                {% endfor %}
 
             </div>
 
@@ -668,16 +818,17 @@
         <div class="actions">
 
             <button
-                id="closeOperationButton"
-                class="secondary-button"
+                type="button"
+                class="action close-btn"
                 onclick="closeOperation()"
             >
                 Close
             </button>
 
             <button
-                id="applyContentSavingButton"
-                class="primary-button"
+                type="button"
+                class="action apply-btn admin-control"
+                id="applyButton"
                 onclick="applyContentSaving()"
             >
                 Apply
@@ -687,9 +838,11 @@
 
 
         <div
-            id="operationStatus"
-            class="status"
-        ></div>
+            id="telegramStatus"
+            class="telegram-status"
+        >
+            Telegram status not loaded.
+        </div>
 
     </div>
 
@@ -698,34 +851,48 @@
 
 <script>
 
-    // ======================================================
-    // TELEGRAM
-    // ======================================================
+    /* =====================================================
+       TELEGRAM
+       ===================================================== */
 
-    const tg = window.Telegram.WebApp;
+    const tg =
+        window.Telegram &&
+        window.Telegram.WebApp
+            ? window.Telegram.WebApp
+            : null;
 
-    tg.ready();
+    if (tg) {
+        tg.ready();
+        tg.expand();
+    }
 
-    tg.expand();
 
-    const telegramInitData = tg.initData;
+    /* =====================================================
+       DATA FROM SERVER
+       ===================================================== */
+
+    const initialConfig =
+        {{ config | tojson }};
+
+
+    /* =====================================================
+       AUTH
+       ===================================================== */
 
     let isAdmin = false;
 
-    let groupsData = {};
 
-    let savedConfiguration = null;
+    function getInitData() {
 
-    let contentSavingStatus = {};
+        if (!tg) {
+            return "";
+        }
 
-    let operationStatusLoaded = false;
+        return tg.initData || "";
+    }
 
 
-    // ======================================================
-    // AUTHENTICATION
-    // ======================================================
-
-    async function authenticateMiniApp() {
+    async function loadAuth() {
 
         try {
 
@@ -734,7 +901,7 @@
                 {
                     headers: {
                         "X-Telegram-Init-Data":
-                            telegramInitData
+                            getInitData()
                     }
                 }
             );
@@ -742,934 +909,504 @@
             if (!response.ok) {
 
                 isAdmin = false;
-
-                setReadOnlyMode();
+                setNonAdminMode();
 
                 return;
             }
 
+            const data =
+                await response.json();
 
-            const data = await response.json();
+            isAdmin =
+                data.is_admin === true;
 
-            isAdmin = data.is_admin === true;
-
-
-            if (isAdmin) {
-
-                enableAdminMode();
-
-                loadContentSavingStatus();
-
-            } else {
-
-                setReadOnlyMode();
-
+            if (!isAdmin) {
+                setNonAdminMode();
             }
 
-        } catch (error) {
+        }
+        catch (error) {
 
-            console.error(
-                "Authentication error:",
-                error
-            );
+            console.error(error);
 
             isAdmin = false;
 
-            setReadOnlyMode();
+            setNonAdminMode();
         }
     }
 
 
-    function setReadOnlyMode() {
+    function setNonAdminMode() {
 
         document
             .querySelectorAll(".admin-control")
-            .forEach(element => {
-                element.disabled = true;
-            });
+            .forEach(function (element) {
 
-
-        document
-            .getElementById("saveButton")
-            .disabled = true;
-
-
-        document
-            .getElementById(
-                "applyContentSavingButton"
-            )
-            .disabled = true;
-
-
-        document
-            .getElementById(
-                "readonlyMessage"
-            )
-            .style.display = "block";
-
-    }
-
-
-    function enableAdminMode() {
-
-        document
-            .querySelectorAll(".admin-control")
-            .forEach(element => {
-                element.disabled = false;
-            });
-
-
-        document
-            .getElementById("saveButton")
-            .disabled = false;
-
-
-        document
-            .getElementById(
-                "applyContentSavingButton"
-            )
-            .disabled = false;
-
-
-        document
-            .getElementById(
-                "readonlyMessage"
-            )
-            .style.display = "none";
-    }
-
-
-    // ======================================================
-    // TABS
-    // ======================================================
-
-    function openTab(tabName) {
-
-        document
-            .querySelectorAll(".tab")
-            .forEach(tab => {
-                tab.classList.remove("active");
-            });
-
-
-        document
-            .querySelectorAll(".tab-button")
-            .forEach(button => {
-                button.classList.remove("active");
-            });
-
-
-        document
-            .getElementById(tabName)
-            .classList.add("active");
-
-
-        if (tabName === "configuration") {
-
-            document
-                .getElementById(
-                    "configurationTabButton"
-                )
-                .classList.add("active");
-
-        }
-
-
-        if (tabName === "operation") {
-
-            document
-                .getElementById(
-                    "operationTabButton"
-                )
-                .classList.add("active");
-
-
-            // IMPORTANT:
-            // Only the admin ever requests
-            // Telegram content-saving status.
-
-            if (isAdmin && !operationStatusLoaded) {
-
-                loadContentSavingStatus();
-
-            }
-
-        }
-
-    }
-
-
-    // ======================================================
-    // GROUP HTML
-    // ======================================================
-
-    function createGroupsHTML(prefix) {
-
-        let html = "";
-
-        for (
-            const [course, faculties]
-            of Object.entries(groupsData)
-        ) {
-
-            const courseId =
-                `${prefix}-course-${course}`;
-
-
-            html += `
-                <div class="course">
-
-                    <div class="course-header">
-
-                        <label>
-
-                            <input
-                                class="admin-control course-checkbox ${prefix}-course-checkbox"
-                                type="checkbox"
-                                data-course="${escapeHtml(course)}"
-                                onchange="toggleCourse(
-                                    '${prefix}',
-                                    '${escapeJs(course)}'
-                                )"
-                            >
-
-                            <span>
-                                ${escapeHtml(course)}
-                            </span>
-
-                        </label>
-
-                    </div>
-
-
-                    <div class="course-groups">
-            `;
-
-
-            for (
-                const [faculty, languages]
-                of Object.entries(faculties)
-            ) {
-
-                html += `
-                    <div class="faculty">
-
-                        <div class="faculty-name">
-                            ${escapeHtml(faculty)}
-                        </div>
-                `;
-
-
-                for (
-                    const [language, groupData]
-                    of Object.entries(languages)
-                ) {
-
-                    const groupId =
-                        `${prefix}-${course}-${faculty}-${language}`
-                            .replace(
-                                /[^a-zA-Z0-9_-]/g,
-                                "_"
-                            );
-
-
-                    const displayLanguage =
-                        language === "qq"
-                            ? "kk"
-                            : language;
-
-
-                    html += `
-                        <label class="group-row">
-
-                            <input
-                                class="admin-control group-checkbox ${prefix}-group-checkbox"
-                                id="${groupId}"
-                                type="checkbox"
-                                data-course="${escapeHtml(course)}"
-                                data-faculty="${escapeHtml(faculty)}"
-                                data-language="${escapeHtml(language)}"
-                                onchange="groupCheckboxChanged(
-                                    '${prefix}'
-                                )"
-                            >
-
-                            <span>
-                                ${escapeHtml(
-                                    displayLanguage
-                                )}
-                            </span>
-
-                        </label>
-                    `;
-                }
-
-
-                html += `
-                    </div>
-                `;
-            }
-
-
-            html += `
-                    </div>
-
-                </div>
-            `;
-        }
-
-
-        return html;
-    }
-
-
-    function escapeHtml(value) {
-
-        return String(value)
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#039;");
-    }
-
-
-    function escapeJs(value) {
-
-        return String(value)
-            .replaceAll("\\", "\\\\")
-            .replaceAll("'", "\\'");
-    }
-
-
-    // ======================================================
-    // LOAD GROUPS
-    // ======================================================
-
-    async function loadConfiguration() {
-
-        try {
-
-            const response = await fetch(
-                "/config"
-            );
-
-            const config =
-                await response.json();
-
-
-            savedConfiguration =
-                JSON.parse(
-                    JSON.stringify(config)
+                element.classList.add(
+                    "admin-disabled"
                 );
 
-
-            document
-                .getElementById(
-                    "configGroupsContainer"
-                )
-                .innerHTML =
-                    createGroupsHTML(
-                        "config"
-                    );
+            });
 
 
-            document
-                .getElementById(
-                    "operationGroupsContainer"
-                )
-                .innerHTML =
-                    createGroupsHTML(
-                        "operation"
-                    );
-
-
-            applySavedSelection(
-                config
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                "Could not load configuration:",
-                error
-            );
-
-        }
-
-    }
-
-
-    // ======================================================
-    // CONFIG SELECTION
-    // ======================================================
-
-    function applySavedSelection(config) {
-
+        // Configuration controls.
         document
             .querySelectorAll(
-                ".message-type"
+                "#configurationPanel input, " +
+                "#configurationPanel button"
             )
-            .forEach(radio => {
+            .forEach(function (element) {
 
-                radio.checked =
-                    radio.value ===
-                    config.message_type;
+                if (
+                    element.closest(".admin-control") ||
+                    element.classList.contains(
+                        "admin-control"
+                    )
+                ) {
+                    element.disabled = true;
+                }
+
+            });
+
+
+        // Group-operation controls.
+        document
+            .querySelectorAll(
+                "#operationPanel input"
+            )
+            .forEach(function (element) {
+
+                element.disabled = true;
 
             });
 
 
         document
-            .getElementById(
-                "copyMessageSwitch"
-            )
-            .checked =
-                config.copy_message === true;
+            .getElementById("applyButton")
+            .disabled = true;
 
-
-        // First clear everything.
 
         document
-            .querySelectorAll(
-                ".config-group-checkbox"
-            )
-            .forEach(
-                checkbox => {
-                    checkbox.checked = false;
-                }
+            .getElementById("saveButton")
+            .disabled = true;
+
+    }
+
+
+    function authHeaders() {
+
+        return {
+            "Content-Type":
+                "application/json",
+
+            "X-Telegram-Init-Data":
+                getInitData()
+        };
+
+    }
+
+
+    /* =====================================================
+       CONFIGURATION
+       ===================================================== */
+
+    function applyInitialConfiguration() {
+
+        const messageType =
+            initialConfig.message_type ||
+            "reqdocs";
+
+
+        const radio =
+            document.querySelector(
+                `input[name="messageType"][value="${messageType}"]`
             );
 
 
-        // Apply selected groups.
+        if (radio) {
+            radio.checked = true;
+        }
 
-        const selectedGroups =
-            config.groups || {};
+
+        document
+            .getElementById("copyMessage")
+            .checked =
+                initialConfig.copy_message === true;
 
 
-        for (
-            const [course, groups]
-            of Object.entries(
-                selectedGroups
+        const selected =
+            initialConfig.groups || {};
+
+
+        document
+            .querySelectorAll(
+                '.group-checkbox[data-section="config"]'
             )
-        ) {
+            .forEach(function (checkbox) {
 
-            if (!Array.isArray(groups)) {
-                continue;
-            }
-
-
-            groups.forEach(groupKey => {
-
-                const parts =
-                    groupKey.split("|");
-
-
-                if (parts.length !== 2) {
-                    return;
-                }
-
+                const course =
+                    checkbox.dataset.course;
 
                 const faculty =
-                    parts[0];
+                    checkbox.dataset.faculty;
 
                 const language =
-                    parts[1];
+                    checkbox.dataset.language;
 
+                const key =
+                    `${faculty}|${language}`;
 
-                const checkbox =
-                    document.querySelector(
-                        `.config-group-checkbox[data-course="${cssEscape(course)}"][data-faculty="${cssEscape(faculty)}"][data-language="${cssEscape(language)}"]`
+                checkbox.checked =
+                    Array.isArray(
+                        selected[course]
+                    ) &&
+                    selected[course].includes(
+                        key
                     );
-
-
-                if (checkbox) {
-                    checkbox.checked = true;
-                }
 
             });
 
+
+        updateAll("config");
+
+    }
+
+
+    /* =====================================================
+       CONFIGURATION CHANGE EVENTS
+       ===================================================== */
+
+    function configurationChanged() {
+
+        if (!isAdmin) {
+            return;
         }
 
+        markConfigurationUnsaved();
 
-        updateAllCheckbox(
-            "config"
-        );
+    }
 
-        updateCourseCheckboxes(
-            "config"
+
+    /* =====================================================
+       SELECTION HELPERS
+       ===================================================== */
+
+    function getGroupCheckboxes(section) {
+
+        return document.querySelectorAll(
+            `.group-checkbox[data-section="${section}"]`
         );
 
     }
 
 
-    function cssEscape(value) {
+    function getCourseCheckboxes(section) {
 
-        if (
-            window.CSS &&
-            typeof window.CSS.escape === "function"
-        ) {
-            return window.CSS.escape(
-                String(value)
-            );
-        }
+        return document.querySelectorAll(
+            `.course-checkbox[data-section="${section}"]`
+        );
 
-        return String(value)
-            .replace(
-                /["\\]/g,
-                "\\$&"
-            );
     }
 
 
-    // ======================================================
-    // ALL CHECKBOX
-    // ======================================================
+    function getGroupsForCourse(
+        section,
+        course
+    ) {
 
-    function toggleAllGroups(prefix) {
+        return document.querySelectorAll(
+            `.group-checkbox[data-section="${section}"][data-course="${course}"]`
+        );
+
+    }
+
+
+    /* =====================================================
+       ALL CHECKBOX
+       ===================================================== */
+
+    function allChanged(section) {
+
+        if (!isAdmin) {
+            return;
+        }
 
         const allCheckbox =
             document.getElementById(
-                prefix === "config"
-                    ? "configAllGroups"
-                    : "operationAllGroups"
+                section === "config"
+                    ? "configAll"
+                    : "operationAll"
             );
 
 
-        const checkboxes =
-            document.querySelectorAll(
-                `.${prefix}-group-checkbox`
-            );
+        const checked =
+            allCheckbox.checked;
 
 
-        checkboxes.forEach(
-            checkbox => {
+        getGroupCheckboxes(section)
+            .forEach(function (checkbox) {
+
                 checkbox.checked =
-                    allCheckbox.checked;
-            }
-        );
+                    checked;
+
+                checkbox.indeterminate =
+                    false;
+
+            });
 
 
-        updateCourseCheckboxes(
-            prefix
-        );
-
-        updateAllCheckbox(
-            prefix
-        );
-
-    }
+        updateAll(section);
 
 
-    function groupCheckboxChanged(prefix) {
-
-        updateCourseCheckboxes(
-            prefix
-        );
-
-        updateAllCheckbox(
-            prefix
-        );
+        if (section === "config") {
+            markConfigurationUnsaved();
+        }
 
     }
 
 
-    // ======================================================
-    // COURSE CHECKBOX
-    // ======================================================
+    /* =====================================================
+       COURSE CHECKBOX
+       ===================================================== */
 
-    function toggleCourse(
-        prefix,
+    function courseChanged(
+        section,
+        course
+    ) {
+
+        if (!isAdmin) {
+            return;
+        }
+
+        const courseCheckbox =
+            document.querySelector(
+                `.course-checkbox[data-section="${section}"][data-course="${course}"]`
+            );
+
+
+        const checked =
+            courseCheckbox.checked;
+
+
+        getGroupsForCourse(
+            section,
+            course
+        )
+            .forEach(function (checkbox) {
+
+                checkbox.checked =
+                    checked;
+
+                checkbox.indeterminate =
+                    false;
+
+            });
+
+
+        updateCourse(
+            section,
+            course
+        );
+
+        updateAll(section);
+
+
+        if (section === "config") {
+            markConfigurationUnsaved();
+        }
+
+    }
+
+
+    /* =====================================================
+       GROUP CHECKBOX
+       ===================================================== */
+
+    function groupChanged(
+        section,
+        course
+    ) {
+
+        if (!isAdmin) {
+            return;
+        }
+
+        updateCourse(
+            section,
+            course
+        );
+
+        updateAll(section);
+
+
+        if (section === "config") {
+            markConfigurationUnsaved();
+        }
+
+    }
+
+
+    /* =====================================================
+       UPDATE COURSE CHECKBOX
+       ===================================================== */
+
+    function updateCourse(
+        section,
         course
     ) {
 
         const courseCheckbox =
             document.querySelector(
-                `.${prefix}-course-checkbox[data-course="${cssEscape(course)}"]`
+                `.course-checkbox[data-section="${section}"][data-course="${course}"]`
             );
 
 
         const groups =
-            document.querySelectorAll(
-                `.${prefix}-group-checkbox[data-course="${cssEscape(course)}"]`
+            getGroupsForCourse(
+                section,
+                course
             );
 
 
-        groups.forEach(
-            checkbox => {
-                checkbox.checked =
-                    courseCheckbox.checked;
+        let checkedCount = 0;
+
+
+        groups.forEach(function (checkbox) {
+
+            if (checkbox.checked) {
+                checkedCount++;
             }
-        );
+
+        });
 
 
-        updateAllCheckbox(
-            prefix
-        );
+        if (checkedCount === 0) {
+
+            courseCheckbox.checked =
+                false;
+
+            courseCheckbox.indeterminate =
+                false;
+
+        }
+        else if (
+            checkedCount === groups.length
+        ) {
+
+            courseCheckbox.checked =
+                true;
+
+            courseCheckbox.indeterminate =
+                false;
+
+        }
+        else {
+
+            courseCheckbox.checked =
+                false;
+
+            courseCheckbox.indeterminate =
+                true;
+
+        }
 
     }
 
 
-    function updateCourseCheckboxes(prefix) {
+    /* =====================================================
+       UPDATE ALL
+       ===================================================== */
 
-        document
-            .querySelectorAll(
-                `.${prefix}-course-checkbox`
-            )
-            .forEach(courseCheckbox => {
+    function updateAll(section) {
 
-                const course =
-                    courseCheckbox.dataset.course;
+        getCourseCheckboxes(section)
+            .forEach(function (checkbox) {
 
-
-                const groups =
-                    document.querySelectorAll(
-                        `.${prefix}-group-checkbox[data-course="${cssEscape(course)}"]`
-                    );
-
-
-                if (groups.length === 0) {
-                    return;
-                }
-
-
-                const checked =
-                    Array.from(
-                        groups
-                    ).filter(
-                        checkbox =>
-                            checkbox.checked
-                    ).length;
-
-
-                courseCheckbox.checked =
-                    checked === groups.length;
-
-
-                courseCheckbox.indeterminate =
-                    checked > 0 &&
-                    checked < groups.length;
+                updateCourse(
+                    section,
+                    checkbox.dataset.course
+                );
 
             });
 
+
+        updateAllCheckbox(section);
+
     }
 
 
-    function updateAllCheckbox(prefix) {
+    function updateAllCheckbox(section) {
 
         const allCheckbox =
             document.getElementById(
-                prefix === "config"
-                    ? "configAllGroups"
-                    : "operationAllGroups"
+                section === "config"
+                    ? "configAll"
+                    : "operationAll"
             );
 
 
         const groups =
-            document.querySelectorAll(
-                `.${prefix}-group-checkbox`
+            Array.from(
+                getGroupCheckboxes(section)
             );
 
 
-        if (groups.length === 0) {
-
-            allCheckbox.checked = false;
-
-            allCheckbox.indeterminate = false;
-
-            return;
-        }
-
-
         const checked =
-            Array.from(groups)
-                .filter(
-                    checkbox =>
-                        checkbox.checked
-                )
-                .length;
+            groups.filter(
+                checkbox =>
+                    checkbox.checked
+            ).length;
 
 
-        allCheckbox.checked =
-            checked === groups.length;
+        if (checked === 0) {
 
+            allCheckbox.checked =
+                false;
 
-        allCheckbox.indeterminate =
-            checked > 0 &&
-            checked < groups.length;
+            allCheckbox.indeterminate =
+                false;
+
+        }
+        else if (
+            checked === groups.length
+        ) {
+
+            allCheckbox.checked =
+                true;
+
+            allCheckbox.indeterminate =
+                false;
+
+        }
+        else {
+
+            allCheckbox.checked =
+                false;
+
+            allCheckbox.indeterminate =
+                true;
+
+        }
 
     }
 
 
-    // ======================================================
-    // GET CONFIG GROUPS
-    // ======================================================
+    /* =====================================================
+       GET GROUP SELECTION
+       ===================================================== */
 
-    function getConfigurationGroups() {
+    function getSelection(section) {
 
         const result = {};
 
 
-        document
-            .querySelectorAll(
-                ".config-group-checkbox:checked"
-            )
-            .forEach(
-                checkbox => {
+        getGroupCheckboxes(section)
+            .forEach(function (checkbox) {
 
-                    const course =
-                        checkbox.dataset.course;
-
-                    const faculty =
-                        checkbox.dataset.faculty;
-
-                    const language =
-                        checkbox.dataset.language;
-
-
-                    if (!result[course]) {
-                        result[course] = [];
-                    }
-
-
-                    result[course].push(
-                        `${faculty}|${language}`
-                    );
-
+                if (!checkbox.checked) {
+                    return;
                 }
-            );
 
-
-        return result;
-    }
-
-
-    // ======================================================
-    // SAVE
-    // ======================================================
-
-    async function saveConfiguration() {
-
-        if (!isAdmin) {
-
-            showStatus(
-                "configStatus",
-                "Access denied.",
-                false
-            );
-
-            return;
-        }
-
-
-        const selectedType =
-            document.querySelector(
-                ".message-type:checked"
-            );
-
-
-        if (!selectedType) {
-
-            showStatus(
-                "configStatus",
-                "Please select a message type.",
-                false
-            );
-
-            return;
-        }
-
-
-        const copyMessage =
-            document
-                .getElementById(
-                    "copyMessageSwitch"
-                )
-                .checked;
-
-
-        const groups =
-            getConfigurationGroups();
-
-
-        try {
-
-            const response =
-                await fetch(
-                    "/save",
-                    {
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-
-                            "X-Telegram-Init-Data":
-                                telegramInitData
-                        },
-
-                        body: JSON.stringify({
-                            message_type:
-                                selectedType.value,
-
-                            copy_message:
-                                copyMessage,
-
-                            groups:
-                                groups
-                        })
-                    }
-                );
-
-
-            const data =
-                await response.json();
-
-
-            if (!response.ok) {
-
-                showStatus(
-                    "configStatus",
-                    data.error ||
-                        "Save failed.",
-                    false
-                );
-
-                return;
-            }
-
-
-            savedConfiguration =
-                data.config;
-
-
-            showStatus(
-                "configStatus",
-                "Configuration saved successfully.",
-                true
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                "Save error:",
-                error
-            );
-
-
-            showStatus(
-                "configStatus",
-                "Could not save configuration.",
-                false
-            );
-        }
-
-    }
-
-
-    // ======================================================
-    // CANCEL
-    // ======================================================
-
-    function cancelConfiguration() {
-
-        if (!savedConfiguration) {
-            return;
-        }
-
-
-        applySavedSelection(
-            savedConfiguration
-        );
-
-
-        showStatus(
-            "configStatus",
-            "",
-            true
-        );
-
-    }
-
-
-    // ======================================================
-    // OPERATION STATUS
-    // ======================================================
-
-    async function loadContentSavingStatus() {
-
-        // Non-admin users must never request
-        // the Telegram status.
-
-        if (!isAdmin) {
-            return;
-        }
-
-
-        try {
-
-            const response =
-                await fetch(
-                    "/content-saving-status",
-                    {
-                        headers: {
-                            "X-Telegram-Init-Data":
-                                telegramInitData
-                        }
-                    }
-                );
-
-
-            if (!response.ok) {
-
-                console.error(
-                    "Could not load content saving status"
-                );
-
-                return;
-            }
-
-
-            const data =
-                await response.json();
-
-
-            if (!data.success) {
-                return;
-            }
-
-
-            contentSavingStatus =
-                data.status || {};
-
-
-            operationStatusLoaded =
-                true;
-
-
-            applyContentSavingStatus();
-
-
-        } catch (error) {
-
-            console.error(
-                "Content saving status error:",
-                error
-            );
-
-        }
-
-    }
-
-
-    function applyContentSavingStatus() {
-
-        document
-            .querySelectorAll(
-                ".operation-group-checkbox"
-            )
-            .forEach(checkbox => {
 
                 const course =
                     checkbox.dataset.course;
@@ -1681,102 +1418,443 @@
                     checkbox.dataset.language;
 
 
-                const status =
-                    contentSavingStatus?.[
-                        course
-                    ]?.[
-                        faculty
-                    ]?.[
-                        language
-                    ] === true;
+                const key =
+                    `${faculty}|${language}`;
 
 
-                checkbox.checked =
-                    status;
+                if (!result[course]) {
+                    result[course] = [];
+                }
+
+
+                if (
+                    !result[course].includes(key)
+                ) {
+
+                    result[course].push(key);
+
+                }
 
             });
 
 
-        updateCourseCheckboxes(
-            "operation"
-        );
+        return result;
 
-        updateAllCheckbox(
-            "operation"
-        );
-
-
-        // We don't automatically set the switch
-        // based on all groups because selected groups
-        // may have different states.
     }
 
 
-    // ======================================================
-    // OPERATION GROUPS
-    // ======================================================
+    /* =====================================================
+       SAVE CONFIGURATION
+       ===================================================== */
 
-    function getOperationGroups() {
+    async function saveConfiguration() {
 
-        const result = [];
+        if (!isAdmin) {
+            return;
+        }
 
 
-        document
-            .querySelectorAll(
-                ".operation-group-checkbox:checked"
-            )
-            .forEach(
-                checkbox => {
-
-                    result.push({
-                        course:
-                            checkbox.dataset.course,
-
-                        faculty:
-                            checkbox.dataset.faculty,
-
-                        language:
-                            checkbox.dataset.language
-                    });
-
-                }
+        const messageRadio =
+            document.querySelector(
+                'input[name="messageType"]:checked'
             );
 
 
-        return result;
-    }
+        if (!messageRadio) {
 
-
-    // ======================================================
-    // APPLY CONTENT SAVING
-    // ======================================================
-
-    async function applyContentSaving() {
-
-        if (!isAdmin) {
-
-            showStatus(
-                "operationStatus",
-                "Access denied.",
-                false
+            alert(
+                "Please select message type."
             );
 
             return;
         }
 
 
-        const groups =
-            getOperationGroups();
+        const payload = {
+
+            message_type:
+                messageRadio.value,
+
+            copy_message:
+                document.getElementById(
+                    "copyMessage"
+                ).checked,
+
+            groups:
+                getSelection("config")
+
+        };
 
 
-        if (groups.length === 0) {
+        try {
 
-            showStatus(
-                "operationStatus",
-                "Please select at least one group.",
-                false
+            const response =
+                await fetch(
+                    "/save",
+                    {
+                        method: "POST",
+
+                        headers:
+                            authHeaders(),
+
+                        body:
+                            JSON.stringify(
+                                payload
+                            )
+                    }
+                );
+
+
+            if (response.status === 403) {
+
+                alert(
+                    "Only administrator can save configuration."
+                );
+
+                return;
+            }
+
+
+            if (!response.ok) {
+                throw new Error(
+                    "Save failed"
+                );
+            }
+
+
+            const data =
+                await response.json();
+
+
+            if (data.success) {
+
+                initialConfig.message_type =
+                    payload.message_type;
+
+                initialConfig.copy_message =
+                    payload.copy_message;
+
+                initialConfig.groups =
+                    payload.groups;
+
+
+                document
+                    .getElementById(
+                        "configStatus"
+                    )
+                    .textContent =
+                        "Saved";
+
+
+                document
+                    .getElementById(
+                        "configStatus"
+                    )
+                    .classList.remove(
+                        "unsaved"
+                    );
+
+            }
+            else {
+
+                alert(
+                    data.error ||
+                    "Could not save configuration."
+                );
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(error);
+
+            alert(
+                "Could not save configuration."
             );
 
+        }
+
+    }
+
+
+    /* =====================================================
+       CANCEL CONFIGURATION
+       ===================================================== */
+
+    function cancelConfiguration() {
+
+        applyInitialConfiguration();
+
+
+        document
+            .getElementById(
+                "configStatus"
+            )
+            .textContent =
+                "Saved";
+
+
+        document
+            .getElementById(
+                "configStatus"
+            )
+            .classList.remove(
+                "unsaved"
+            );
+
+    }
+
+
+    function markConfigurationUnsaved() {
+
+        document
+            .getElementById(
+                "configStatus"
+            )
+            .textContent =
+                "Unsaved changes";
+
+
+        document
+            .getElementById(
+                "configStatus"
+            )
+            .classList.add(
+                "unsaved"
+            );
+
+    }
+
+
+    /* =====================================================
+       TABS
+       ===================================================== */
+
+    function openTab(tab) {
+
+        if (tab === "configuration") {
+
+            document
+                .getElementById(
+                    "configurationPanel"
+                )
+                .classList.remove(
+                    "hidden"
+                );
+
+
+            document
+                .getElementById(
+                    "operationPanel"
+                )
+                .classList.add(
+                    "hidden"
+                );
+
+
+            document
+                .getElementById(
+                    "configurationTab"
+                )
+                .classList.add(
+                    "active"
+                );
+
+
+            document
+                .getElementById(
+                    "operationTab"
+                )
+                .classList.remove(
+                    "active"
+                );
+
+        }
+        else {
+
+            document
+                .getElementById(
+                    "configurationPanel"
+                )
+                .classList.add(
+                    "hidden"
+                );
+
+
+            document
+                .getElementById(
+                    "operationPanel"
+                )
+                .classList.remove(
+                    "hidden"
+                );
+
+
+            document
+                .getElementById(
+                    "configurationTab"
+                )
+                .classList.remove(
+                    "active"
+                );
+
+
+            document
+                .getElementById(
+                    "operationTab"
+                )
+                .classList.add(
+                    "active"
+                );
+
+
+            // Only the administrator is allowed to read
+            // Telegram's actual content-saving state.
+            if (isAdmin) {
+                loadContentSavingStatus();
+            }
+
+        }
+
+    }
+
+
+    /* =====================================================
+       CONTENT SAVING STATUS
+       ===================================================== */
+
+    async function loadContentSavingStatus() {
+
+        if (!isAdmin) {
+            return;
+        }
+
+
+        const status =
+            document.getElementById(
+                "telegramStatus"
+            );
+
+
+        status.textContent =
+            "Reading Telegram status...";
+
+
+        try {
+
+            const response =
+                await fetch(
+                    "/content-saving-status",
+                    {
+                        headers: {
+                            "X-Telegram-Init-Data":
+                                getInitData()
+                        }
+                    }
+                );
+
+
+            if (response.status === 403) {
+
+                status.textContent =
+                    "Administrator access required.";
+
+                return;
+            }
+
+
+            if (!response.ok) {
+                throw new Error(
+                    "Could not read status"
+                );
+            }
+
+
+            const data =
+                await response.json();
+
+
+            if (!data.success) {
+                throw new Error(
+                    "Telegram status failed"
+                );
+            }
+
+
+            const statuses =
+                data.status || {};
+
+
+            getGroupCheckboxes("operation")
+                .forEach(function (checkbox) {
+
+                    const course =
+                        checkbox.dataset.course;
+
+                    const faculty =
+                        checkbox.dataset.faculty;
+
+                    const language =
+                        checkbox.dataset.language;
+
+
+                    const key =
+                        course +
+                        "|" +
+                        faculty +
+                        "|" +
+                        language;
+
+
+                    checkbox.checked =
+                        statuses[key] === true;
+
+                });
+
+
+            updateAll("operation");
+
+
+            const anyRestricted =
+                Object.values(statuses)
+                    .some(
+                        value =>
+                            value === true
+                    );
+
+
+            document
+                .getElementById(
+                    "restrictContentSaving"
+                )
+                .checked =
+                    anyRestricted;
+
+
+            status.textContent =
+                "Telegram status loaded.";
+
+        }
+        catch (error) {
+
+            console.error(error);
+
+            status.textContent =
+                "Could not read Telegram status.";
+
+        }
+
+    }
+
+
+    /* =====================================================
+       APPLY CONTENT SAVING
+       ===================================================== */
+
+    async function applyContentSaving() {
+
+        if (!isAdmin) {
             return;
         }
 
@@ -1784,9 +1862,13 @@
         const enabled =
             document
                 .getElementById(
-                    "contentSavingSwitch"
+                    "restrictContentSaving"
                 )
                 .checked;
+
+
+        const groups =
+            getSelection("operation");
 
 
         try {
@@ -1797,90 +1879,70 @@
                     {
                         method: "POST",
 
-                        headers: {
-                            "Content-Type":
-                                "application/json",
+                        headers:
+                            authHeaders(),
 
-                            "X-Telegram-Init-Data":
-                                telegramInitData
-                        },
+                        body:
+                            JSON.stringify({
+                                enabled:
+                                    enabled,
 
-                        body: JSON.stringify({
-                            groups:
-                                groups,
-
-                            enabled:
-                                enabled
-                        })
+                                groups:
+                                    groups
+                            })
                     }
                 );
 
 
-            const data =
-                await response.json();
+            if (response.status === 403) {
 
-
-            if (!response.ok) {
-
-                showStatus(
-                    "operationStatus",
-                    data.error ||
-                        "Apply failed.",
-                    false
+                alert(
+                    "Only administrator can apply changes."
                 );
 
                 return;
             }
 
 
-            const failed =
-                (data.results || [])
-                    .filter(
-                        item =>
-                            !item.success
-                    );
-
-
-            if (failed.length === 0) {
-
-                showStatus(
-                    "operationStatus",
-                    enabled
-                        ? "Content saving restriction enabled."
-                        : "Content saving restriction disabled.",
-                    true
+            if (!response.ok) {
+                throw new Error(
+                    "Apply failed"
                 );
+            }
 
-            } else {
 
-                showStatus(
-                    "operationStatus",
-                    `Completed with ${failed.length} error(s).`,
-                    false
+            const data =
+                await response.json();
+
+
+            if (data.success) {
+
+                document
+                    .getElementById(
+                        "telegramStatus"
+                    )
+                    .textContent =
+                        "Telegram status updated.";
+
+                await loadContentSavingStatus();
+
+            }
+            else {
+
+                alert(
+                    data.error ||
+                    "Could not apply changes."
                 );
 
             }
 
+        }
+        catch (error) {
 
-            // Refresh real Telegram state.
+            console.error(error);
 
-            operationStatusLoaded = false;
-
-            await loadContentSavingStatus();
-
-
-        } catch (error) {
-
-            console.error(
-                "Apply error:",
-                error
-            );
-
-
-            showStatus(
-                "operationStatus",
-                "Could not apply changes.",
-                false
+            alert(
+                "Could not apply content-saving settings."
             );
 
         }
@@ -1888,71 +1950,53 @@
     }
 
 
-    // ======================================================
-    // CLOSE OPERATION
-    // ======================================================
+    /* =====================================================
+       CLOSE OPERATION
+       ===================================================== */
 
     function closeOperation() {
 
-        // Nothing is sent to the server here.
-
-        openTab(
-            "configuration"
-        );
+        openTab("configuration");
 
     }
 
 
-    // ======================================================
-    // STATUS MESSAGE
-    // ======================================================
-
-    function showStatus(
-        elementId,
-        message,
-        success
-    ) {
-
-        const element =
-            document.getElementById(
-                elementId
-            );
-
-
-        if (!message) {
-
-            element.className =
-                "status";
-
-            element.textContent = "";
-
-            return;
-        }
-
-
-        element.textContent =
-            message;
-
-
-        element.className =
-            success
-                ? "status success"
-                : "status error";
-
-    }
-
-
-    // ======================================================
-    // INITIALIZATION
-    // ======================================================
+    /* =====================================================
+       INITIALIZE
+       ===================================================== */
 
     document.addEventListener(
         "DOMContentLoaded",
-        async function() {
+        async function () {
 
-            await loadConfiguration();
+            applyInitialConfiguration();
 
-            await authenticateMiniApp();
+
+            document
+                .querySelectorAll(
+                    'input[name="messageType"]'
+                )
+                .forEach(function (radio) {
+
+                    radio.addEventListener(
+                        "change",
+                        configurationChanged
+                    );
+
+                });
+
+
+            document
+                .getElementById(
+                    "copyMessage"
+                )
+                .addEventListener(
+                    "change",
+                    configurationChanged
+                );
+
+
+            await loadAuth();
 
         }
     );
@@ -1960,5 +2004,4 @@
 </script>
 
 </body>
-
 </html>

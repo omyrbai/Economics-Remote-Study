@@ -1,22 +1,23 @@
-import asyncio
-import hashlib
-import hmac
-import json
 import os
-import threading
+import json
 import time
+import hmac
+import hashlib
+import asyncio
+import threading
+from secrets import randbits
 from urllib.parse import parse_qsl
+
+from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 
-from flask import Flask, jsonify, render_template, request
-
-from telethon import TelegramClient, functions, types
+from telethon import TelegramClient, functions, types, events
 
 from groups import TG_GROUPS
 
 
 # ============================================================
-# CONFIGURATION
+# ENVIRONMENT
 # ============================================================
 
 load_dotenv()
@@ -26,11 +27,8 @@ API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
-SESSION_FILE = "dekanat_session.session"
-CONFIG_FILE = "config.json"
-
-HOST = "0.0.0.0"
-PORT = 8000
+if not BOT_TOKEN:
+    raise RuntimeError("BOT_TOKEN is missing from .env")
 
 
 # ============================================================
@@ -44,752 +42,917 @@ app = Flask(__name__)
 # TELEGRAM CLIENT
 # ============================================================
 
-telegram_client = None
+client = TelegramClient(
+    "dekanat_session",
+    API_ID,
+    API_HASH
+)
+
 telegram_loop = None
-telegram_thread = None
+telegram_ready = threading.Event()
+telegram_account_id = None
 
 
 # ============================================================
 # CONFIG FILE
+#
+# Groups are stored in this format:
+#
+# {
+#   "message_type": "reqdocs",
+#   "copy_message": true,
+#   "groups": {
+#       "1": [
+#           "Economics|qq",
+#           "Economics|ru"
+#       ]
+#   }
+# }
 # ============================================================
 
-DEFAULT_CONFIG = {
-    "message_type": "xabar",
-    "copy_message": True,
-    "groups": {}
+CONFIG_FILE = "config.json"
+
+ALLOWED_MESSAGE_TYPES = {
+    "xabar",
+    "reqdocs",
+    "regulations",
+    "links",
+    "timetable",
+    "faq",
 }
 
 
+def default_config():
+    return {
+        "message_type": "reqdocs",
+        "copy_message": True,
+        "groups": {},
+    }
+
+
+def normalize_groups(groups):
+    """
+    Return the canonical flat group-selection format.
+
+    Canonical:
+        {
+            "1": ["Economics|qq", "Economics|ru"]
+        }
+
+    Also accepts the older nested format so an existing config.json
+    can be migrated automatically.
+    """
+
+    if not isinstance(groups, dict):
+        return {}
+
+    normalized = {}
+
+    for course, selections in groups.items():
+
+        if course not in TG_GROUPS:
+            continue
+
+        valid = []
+
+        # New format:
+        # "1": ["Economics|qq", "Economics|ru"]
+        if isinstance(selections, list):
+
+            for selection in selections:
+
+                if not isinstance(selection, str):
+                    continue
+
+                parts = selection.split("|", 1)
+
+                if len(parts) != 2:
+                    continue
+
+                faculty, language = parts
+
+                if (
+                    faculty in TG_GROUPS[course]
+                    and language in TG_GROUPS[course][faculty]
+                ):
+                    key = f"{faculty}|{language}"
+
+                    if key not in valid:
+                        valid.append(key)
+
+        # Legacy format:
+        # "1": {
+        #     "Economics": ["qq", "ru"]
+        # }
+        elif isinstance(selections, dict):
+
+            for faculty, languages in selections.items():
+
+                if faculty not in TG_GROUPS[course]:
+                    continue
+
+                if not isinstance(languages, list):
+                    continue
+
+                for language in languages:
+
+                    if language in TG_GROUPS[course][faculty]:
+
+                        key = f"{faculty}|{language}"
+
+                        if key not in valid:
+                            valid.append(key)
+
+        if valid:
+            normalized[course] = valid
+
+    return normalized
+
+
 def load_config():
+
     if not os.path.exists(CONFIG_FILE):
-        save_config(DEFAULT_CONFIG.copy())
+        return default_config()
 
     try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            config = json.load(f)
 
-        if not isinstance(config, dict):
-            return DEFAULT_CONFIG.copy()
+        with open(
+            CONFIG_FILE,
+            "r",
+            encoding="utf-8",
+        ) as file:
 
-        config.setdefault("message_type", "xabar")
-        config.setdefault("copy_message", True)
-        config.setdefault("groups", {})
+            data = json.load(file)
+
+        config = default_config()
+
+        if not isinstance(data, dict):
+            return config
+
+        message_type = data.get("message_type")
+
+        if message_type in ALLOWED_MESSAGE_TYPES:
+            config["message_type"] = message_type
+
+        config["copy_message"] = bool(
+            data.get("copy_message", True)
+        )
+
+        config["groups"] = normalize_groups(
+            data.get("groups", {})
+        )
 
         return config
 
-    except Exception as e:
-        print(f"Error loading config.json: {e}")
-        return DEFAULT_CONFIG.copy()
+    except Exception as error:
+
+        print("Could not load config:", error)
+
+        return default_config()
 
 
 def save_config(config):
-    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+
+    config_to_save = {
+        "message_type": config.get(
+            "message_type",
+            "reqdocs",
+        ),
+        "copy_message": bool(
+            config.get("copy_message", True)
+        ),
+        "groups": normalize_groups(
+            config.get("groups", {})
+        ),
+    }
+
+    with open(
+        CONFIG_FILE,
+        "w",
+        encoding="utf-8",
+    ) as file:
+
         json.dump(
-            config,
-            f,
+            config_to_save,
+            file,
             ensure_ascii=False,
-            indent=2
+            indent=2,
         )
+
+
+# ============================================================
+# TELEGRAM HELPERS
+# ============================================================
+
+def configured_destination_chat_ids():
+
+    config = load_config()
+
+    result = set()
+
+    for course, selections in config["groups"].items():
+
+        if course not in TG_GROUPS:
+            continue
+
+        for selection in selections:
+
+            try:
+                faculty, language = selection.split("|", 1)
+
+                group_data = TG_GROUPS[course][faculty][language]
+
+                result.add(int(group_data["chatid"]))
+
+            except (
+                KeyError,
+                ValueError,
+                TypeError,
+            ):
+                continue
+
+    return result
+
+
+async def distribute_message(message):
+
+    config = load_config()
+
+    message_type = config["message_type"]
+    copy_message = config["copy_message"]
+    selected_groups = config["groups"]
+
+    if not selected_groups:
+        print("Distribution skipped: no groups selected.")
+        return
+
+    print(
+        f"Distributing message {message.id} "
+        f"(type={message_type}, copy={copy_message})"
+    )
+
+    # The original message's source chat.
+    #
+    # This is needed for ForwardMessagesRequest.
+    try:
+        source_peer = await client.get_input_entity(
+            message.peer_id
+        )
+    except Exception as error:
+        print(
+            f"Could not resolve source peer for message "
+            f"{message.id}: {error}"
+        )
+        return
+
+    for course, selections in selected_groups.items():
+
+        if course not in TG_GROUPS:
+            continue
+
+        for selection in selections:
+
+            try:
+
+                faculty, language = selection.split("|", 1)
+
+                group_data = TG_GROUPS[
+                    course
+                ][
+                    faculty
+                ][
+                    language
+                ]
+
+                chat_id = int(
+                    group_data["chatid"]
+                )
+
+                topic_id = group_data.get(
+                    message_type
+                )
+
+                if not topic_id:
+                    print(
+                        f"Skipping {course}|{faculty}|{language}: "
+                        f"no topic for {message_type}"
+                    )
+                    continue
+
+                topic_id = int(topic_id)
+
+                entity = await client.get_entity(
+                    chat_id
+                )
+
+                if copy_message:
+
+                    # Copy the message without the
+                    # "Forwarded from..." header.
+                    #
+                    # reply_to is the topic root message ID.
+                    await client.send_message(
+                        entity,
+                        message,
+                        reply_to=topic_id,
+                    )
+
+                else:
+
+                    # Telethon's high-level forward_messages()
+                    # does not expose forum topic selection.
+                    #
+                    # Telegram's raw messages.forwardMessages
+                    # does support top_msg_id, which is the
+                    # destination forum topic.
+                    await client(
+                        functions.messages.ForwardMessagesRequest(
+                            from_peer=source_peer,
+                            id=[message.id],
+                            random_id=[randbits(64)],
+                            to_peer=entity,
+                            top_msg_id=topic_id,
+                        )
+                    )
+
+                print(
+                    f"Distributed -> "
+                    f"{course}|{faculty}|{language}"
+                )
+
+            except Exception as error:
+
+                print(
+                    f"Distribution error -> "
+                    f"{course}|{faculty}|{language}: "
+                    f"{error}"
+                )
+
+
+# ============================================================
+# AUTOMATIC OUTGOING MESSAGE DISTRIBUTION
+# ============================================================
+
+@client.on(events.NewMessage(outgoing=True))
+async def outgoing_message_handler(event):
+
+    # The Telegram session must belong to the configured admin.
+    if telegram_account_id != ADMIN_ID:
+        return
+
+    # Do not redistribute messages which the distributor itself
+    # has just sent to destination groups.
+    destination_ids = configured_destination_chat_ids()
+
+    if event.chat_id in destination_ids:
+        return
+
+    print(
+        f"Outgoing message detected: "
+        f"chat_id={event.chat_id}, "
+        f"message_id={event.message.id}"
+    )
+
+    await distribute_message(
+        event.message
+    )
 
 
 # ============================================================
 # TELEGRAM MINI APP AUTHENTICATION
 # ============================================================
 
-def validate_telegram_init_data(init_data):
-    """
-    Validate Telegram Mini App initData.
-
-    Returns:
-        user dictionary if valid
-        None if invalid
-    """
+def validate_init_data(init_data):
 
     if not init_data:
         return None
 
     try:
+
         parsed = dict(
             parse_qsl(
                 init_data,
-                keep_blank_values=True
+                keep_blank_values=True,
             )
         )
 
-        received_hash = parsed.pop("hash", None)
+        received_hash = parsed.pop(
+            "hash",
+            None,
+        )
 
         if not received_hash:
             return None
 
         data_check_string = "\n".join(
-            f"{key}={value}"
-            for key, value in sorted(parsed.items())
+            f"{key}={parsed[key]}"
+            for key in sorted(parsed)
         )
 
         secret_key = hmac.new(
             key=b"WebAppData",
-            msg=BOT_TOKEN.encode("utf-8"),
-            digestmod=hashlib.sha256
+            msg=BOT_TOKEN.encode(),
+            digestmod=hashlib.sha256,
         ).digest()
 
         calculated_hash = hmac.new(
             key=secret_key,
-            msg=data_check_string.encode("utf-8"),
-            digestmod=hashlib.sha256
+            msg=data_check_string.encode(),
+            digestmod=hashlib.sha256,
         ).hexdigest()
 
         if not hmac.compare_digest(
             calculated_hash,
-            received_hash
+            received_hash,
         ):
             return None
 
         auth_date = int(
-            parsed.get("auth_date", "0")
+            parsed.get(
+                "auth_date",
+                "0",
+            )
         )
 
-        # 24-hour validity window
-        if auth_date <= 0:
-            return None
-
+        # Reject very old Mini App authentication data.
         if time.time() - auth_date > 86400:
             return None
 
-        user_data = parsed.get("user")
+        user_json = parsed.get("user")
 
-        if not user_data:
+        if not user_json:
             return None
 
-        user = json.loads(user_data)
-
-        if not isinstance(user, dict):
-            return None
-
-        if "id" not in user:
-            return None
+        user = json.loads(user_json)
 
         return user
 
-    except Exception as e:
-        print(f"Mini App authentication error: {e}")
+    except Exception as error:
+
+        print(
+            "Mini App auth error:",
+            error,
+        )
+
         return None
 
 
 def get_authenticated_user():
+
     init_data = request.headers.get(
-        "X-Telegram-Init-Data"
+        "X-Telegram-Init-Data",
+        "",
     )
 
-    return validate_telegram_init_data(init_data)
+    return validate_init_data(
+        init_data
+    )
 
 
 def require_admin():
-    """
-    Returns Telegram user if the request
-    belongs to the configured admin.
-
-    Returns None otherwise.
-    """
 
     user = get_authenticated_user()
 
     if not user:
         return None
 
-    try:
-        user_id = int(user["id"])
-        admin_id = int(ADMIN_ID)
-    except (TypeError, ValueError):
-        return None
-
-    if user_id != admin_id:
+    if int(user.get("id", 0)) != ADMIN_ID:
         return None
 
     return user
 
 
 # ============================================================
-# GROUP HELPERS
-# ============================================================
-
-def get_all_groups():
-    """
-    Return a flat list of all configured Telegram groups.
-    """
-
-    result = []
-
-    for course, faculties in TG_GROUPS.items():
-
-        for faculty, languages in faculties.items():
-
-            for language, group_data in languages.items():
-
-                result.append({
-                    "course": course,
-                    "faculty": faculty,
-                    "language": language,
-                    "display_language": (
-                        "kk"
-                        if language == "qq"
-                        else language
-                    ),
-                    "chatid": str(group_data["chatid"]),
-                    "topics": {
-                        key: str(value)
-                        for key, value in group_data.items()
-                        if key != "chatid"
-                    }
-                })
-
-    return result
-
-
-def get_group(chat_id):
-    chat_id = str(chat_id)
-
-    for course, faculties in TG_GROUPS.items():
-        for faculty, languages in faculties.items():
-            for language, group_data in languages.items():
-
-                if str(group_data["chatid"]) == chat_id:
-                    return {
-                        "course": course,
-                        "faculty": faculty,
-                        "language": language,
-                        "display_language": (
-                            "kk"
-                            if language == "qq"
-                            else language
-                        ),
-                        "chatid": chat_id,
-                        "topics": {
-                            key: str(value)
-                            for key, value in group_data.items()
-                            if key != "chatid"
-                        }
-                    }
-
-    return None
-
-
-def get_selected_chat_ids():
-    config = load_config()
-
-    selected = []
-
-    for course, groups in config.get("groups", {}).items():
-
-        for group_key in groups:
-
-            try:
-                faculty, language = group_key.split("|", 1)
-            except ValueError:
-                continue
-
-            course_data = TG_GROUPS.get(course, {})
-            faculty_data = course_data.get(faculty, {})
-            group_data = faculty_data.get(language)
-
-            if group_data:
-                selected.append(
-                    str(group_data["chatid"])
-                )
-
-    return selected
-
-
-# ============================================================
-# TELEGRAM STATUS
-# ============================================================
-
-async def get_group_content_saving_status(chat_id):
-    """
-    Get the real Telegram noforwards state.
-    """
-
-    entity = await telegram_client.get_entity(
-        int(chat_id)
-    )
-
-    # Channels / supergroups
-    if isinstance(entity, types.Channel):
-
-        result = await telegram_client(
-            functions.channels.GetFullChannelRequest(
-                channel=entity
-            )
-        )
-
-        # Find the refreshed channel object.
-        for chat in result.chats:
-            if getattr(chat, "id", None) == entity.id:
-                return bool(
-                    getattr(
-                        chat,
-                        "noforwards",
-                        False
-                    )
-                )
-
-        return bool(
-            getattr(
-                entity,
-                "noforwards",
-                False
-            )
-        )
-
-    # Normal groups
-    if isinstance(entity, types.Chat):
-
-        result = await telegram_client(
-            functions.messages.GetFullChatRequest(
-                chat_id=entity.id
-            )
-        )
-
-        return bool(
-            getattr(
-                result.full_chat,
-                "noforwards",
-                False
-            )
-        )
-
-    return False
-
-
-async def get_all_content_saving_status():
-    result = {}
-
-    for group in get_all_groups():
-
-        chat_id = group["chatid"]
-
-        try:
-            status = await get_group_content_saving_status(
-                chat_id
-            )
-
-            result.setdefault(
-                group["course"],
-                {}
-            )
-
-            result[group["course"]].setdefault(
-                group["faculty"],
-                {}
-            )
-
-            result[group["course"]][group["faculty"]][
-                group["language"]
-            ] = status
-
-        except Exception as e:
-
-            print(
-                f"Could not get status for "
-                f"{chat_id}: {e}"
-            )
-
-            result.setdefault(
-                group["course"],
-                {}
-            )
-
-            result[group["course"]].setdefault(
-                group["faculty"],
-                {}
-            )
-
-            result[group["course"]][group["faculty"]][
-                group["language"]
-            ] = False
-
-    return result
-
-
-async def apply_content_saving_to_groups(
-    selected_groups,
-    enabled
-):
-    results = []
-
-    for item in selected_groups:
-
-        course = str(item.get("course"))
-        faculty = str(item.get("faculty"))
-        language = str(item.get("language"))
-
-        group_data = (
-            TG_GROUPS
-            .get(course, {})
-            .get(faculty, {})
-            .get(language)
-        )
-
-        if not group_data:
-            results.append({
-                "course": course,
-                "faculty": faculty,
-                "language": language,
-                "success": False,
-                "error": "Group not found"
-            })
-            continue
-
-        chat_id = str(group_data["chatid"])
-
-        try:
-
-            entity = await telegram_client.get_entity(
-                int(chat_id)
-            )
-
-            await telegram_client(
-                functions.messages.ToggleNoForwardsRequest(
-                    peer=entity,
-                    enabled=bool(enabled)
-                )
-            )
-
-            results.append({
-                "course": course,
-                "faculty": faculty,
-                "language": language,
-                "chatid": chat_id,
-                "success": True
-            })
-
-        except Exception as e:
-
-            print(
-                f"Could not change content saving "
-                f"for {chat_id}: {e}"
-            )
-
-            results.append({
-                "course": course,
-                "faculty": faculty,
-                "language": language,
-                "chatid": chat_id,
-                "success": False,
-                "error": str(e)
-            })
-
-    return results
-
-
-# ============================================================
 # TELEGRAM LOOP BRIDGE
+#
+# Flask runs in its own thread.
+# Telethon owns one asyncio event loop in another thread.
+# All Telethon work from Flask is submitted to that same loop.
 # ============================================================
 
-def run_telegram_coroutine(coro):
-    """
-    Run a coroutine on the persistent Telegram event loop.
-    """
+def run_on_telegram(coroutine, timeout=120):
+
+    if not telegram_ready.wait(timeout=30):
+        raise RuntimeError(
+            "Telegram client is not ready."
+        )
 
     if telegram_loop is None:
         raise RuntimeError(
-            "Telegram event loop is not running"
+            "Telegram event loop is not available."
         )
 
     future = asyncio.run_coroutine_threadsafe(
-        coro,
-        telegram_loop
+        coroutine,
+        telegram_loop,
     )
 
-    return future.result()
-
-
-# ============================================================
-# ROUTES
-# ============================================================
-
-@app.route("/")
-def index():
-    return render_template(
-        "index.html",
-        groups=TG_GROUPS
+    return future.result(
+        timeout=timeout
     )
 
 
-@app.route("/auth/me")
+# ============================================================
+# AUTH ENDPOINT
+# ============================================================
+
+@app.get("/auth/me")
 def auth_me():
 
     user = get_authenticated_user()
 
     if not user:
+
         return jsonify({
             "authenticated": False,
-            "is_admin": False
-        }), 401
-
-    user_id = int(user["id"])
+            "is_admin": False,
+        })
 
     return jsonify({
         "authenticated": True,
-        "is_admin": user_id == int(ADMIN_ID),
-        "user": {
-            "id": user_id,
-            "first_name": user.get(
-                "first_name",
-                ""
-            ),
-            "last_name": user.get(
-                "last_name",
-                ""
-            ),
-            "username": user.get(
-                "username",
-                ""
-            )
-        }
+        "is_admin": (
+            int(user.get("id", 0))
+            == ADMIN_ID
+        ),
+        "user_id": user.get("id"),
     })
 
 
 # ============================================================
-# CONFIGURATION
+# MAIN PAGE
 # ============================================================
 
-@app.route("/config")
-def get_config():
+@app.get("/")
+def index():
 
     config = load_config()
 
-    return jsonify(config)
+    return render_template(
+        "index.html",
+        groups=TG_GROUPS,
+        config=config,
+    )
 
 
-@app.route("/save", methods=["POST"])
+# ============================================================
+# SAVE CONFIGURATION
+# ============================================================
+
+@app.post("/save")
 def save():
 
-    # SERVER-SIDE ADMIN CHECK
-    if require_admin() is None:
+    user = require_admin()
+
+    if not user:
 
         return jsonify({
             "success": False,
-            "error": "Access denied"
+            "error": "Administrator access required.",
         }), 403
 
-    try:
+    data = request.get_json(
+        silent=True
+    )
 
-        data = request.get_json()
+    if not isinstance(data, dict):
 
-        if not isinstance(data, dict):
-            return jsonify({
-                "success": False,
-                "error": "Invalid request"
-            }), 400
+        return jsonify({
+            "success": False,
+            "error": "Invalid request.",
+        }), 400
 
-        message_type = data.get(
-            "message_type",
-            "xabar"
-        )
+    message_type = data.get(
+        "message_type"
+    )
 
-        allowed_message_types = {
-            "xabar",
-            "reqdocs",
-            "regulations",
-            "links",
-            "timetable",
-            "faq"
-        }
+    if message_type not in ALLOWED_MESSAGE_TYPES:
 
-        if message_type not in allowed_message_types:
-            return jsonify({
-                "success": False,
-                "error": "Invalid message type"
-            }), 400
+        return jsonify({
+            "success": False,
+            "error": "Invalid message type.",
+        }), 400
 
-        copy_message = bool(
+    groups = data.get(
+        "groups",
+        {},
+    )
+
+    normalized_groups = normalize_groups(
+        groups
+    )
+
+    config = {
+        "message_type": message_type,
+        "copy_message": bool(
             data.get(
                 "copy_message",
-                True
+                True,
+            )
+        ),
+        "groups": normalized_groups,
+    }
+
+    save_config(config)
+
+    print(
+        "Configuration saved:",
+        config,
+    )
+
+    return jsonify({
+        "success": True,
+        "config": config,
+    })
+
+
+# ============================================================
+# CONTENT-SAVING STATUS
+# ============================================================
+
+async def get_group_content_saving_status(
+    chat_id
+):
+
+    entity = await client.get_entity(
+        int(chat_id)
+    )
+
+    # --------------------------------------------------------
+    # CHANNEL / SUPERGROUP
+    # --------------------------------------------------------
+
+    if isinstance(entity, types.Channel):
+
+        result = await client(
+            functions.channels.GetFullChannelRequest(
+                channel=entity
             )
         )
 
-        groups = data.get(
-            "groups",
-            {}
+        for chat in result.chats:
+
+            if chat.id == entity.id:
+
+                return bool(
+                    getattr(
+                        chat,
+                        "noforwards",
+                        False,
+                    )
+                )
+
+        return False
+
+    # --------------------------------------------------------
+    # NORMAL GROUP
+    # --------------------------------------------------------
+
+    if isinstance(entity, types.Chat):
+
+        result = await client(
+            functions.messages.GetFullChatRequest(
+                chat_id=entity.id
+            )
         )
 
-        if not isinstance(groups, dict):
-            return jsonify({
-                "success": False,
-                "error": "Invalid groups"
-            }), 400
+        for chat in result.chats:
 
-        # Clean the groups before saving.
-        cleaned_groups = {}
+            if chat.id == entity.id:
 
-        for course, selected in groups.items():
+                return bool(
+                    getattr(
+                        chat,
+                        "noforwards",
+                        False,
+                    )
+                )
 
-            if course not in TG_GROUPS:
-                continue
+        return False
 
-            if not isinstance(selected, list):
-                continue
+    return False
 
-            cleaned = []
 
-            for group_key in selected:
+async def read_all_content_saving_status():
 
-                if not isinstance(
-                    group_key,
-                    str
-                ):
-                    continue
+    result = {}
+
+    for course, faculties in TG_GROUPS.items():
+
+        for faculty, languages in faculties.items():
+
+            for language, data in languages.items():
+
+                chat_id = data["chatid"]
+
+                key = (
+                    f"{course}|"
+                    f"{faculty}|"
+                    f"{language}"
+                )
 
                 try:
-                    faculty, language = group_key.split(
-                        "|",
-                        1
-                    )
-                except ValueError:
-                    continue
 
-                if (
-                    faculty in TG_GROUPS[course]
-                    and language in TG_GROUPS[
-                        course
-                    ][faculty]
-                ):
-                    cleaned.append(
-                        f"{faculty}|{language}"
+                    result[key] = (
+                        await get_group_content_saving_status(
+                            chat_id
+                        )
                     )
 
-            if cleaned:
-                cleaned_groups[course] = cleaned
+                except Exception as error:
 
-        new_config = {
-            "message_type": message_type,
-            "copy_message": copy_message,
-            "groups": cleaned_groups
-        }
+                    print(
+                        "Status error:",
+                        course,
+                        faculty,
+                        language,
+                        error,
+                    )
 
-        save_config(new_config)
+                    result[key] = False
 
-        return jsonify({
-            "success": True,
-            "config": new_config
-        })
-
-    except Exception as e:
-
-        print(f"Save error: {e}")
-
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+    return result
 
 
-# ============================================================
-# CONTENT SAVING STATUS
-# ============================================================
-
-@app.route("/content-saving-status")
+@app.get("/content-saving-status")
 def content_saving_status():
 
-    # IMPORTANT:
-    # Non-admin users are not allowed to request
-    # Telegram group status at all.
+    user = require_admin()
 
-    if require_admin() is None:
+    if not user:
 
         return jsonify({
             "success": False,
-            "error": "Access denied"
+            "error": "Administrator access required.",
         }), 403
 
     try:
 
-        result = run_telegram_coroutine(
-            get_all_content_saving_status()
+        status = run_on_telegram(
+            read_all_content_saving_status()
         )
 
         return jsonify({
             "success": True,
-            "status": result
+            "status": status,
         })
 
-    except Exception as e:
+    except Exception as error:
 
         print(
-            f"Content saving status error: {e}"
+            "Content-saving status error:",
+            error,
         )
 
         return jsonify({
             "success": False,
-            "error": str(e)
+            "error": str(error),
         }), 500
 
 
 # ============================================================
-# APPLY CONTENT SAVING
+# APPLY CONTENT-SAVING
 # ============================================================
 
-@app.route(
-    "/apply-content-saving",
-    methods=["POST"]
-)
+async def apply_content_saving_changes(
+    enabled,
+    selected_groups,
+):
+
+    results = {}
+
+    normalized_groups = normalize_groups(
+        selected_groups
+    )
+
+    for course, selections in normalized_groups.items():
+
+        for selection in selections:
+
+            try:
+
+                faculty, language = selection.split(
+                    "|",
+                    1,
+                )
+
+                group_data = TG_GROUPS[
+                    course
+                ][
+                    faculty
+                ][
+                    language
+                ]
+
+                chat_id = int(
+                    group_data["chatid"]
+                )
+
+                key = (
+                    f"{course}|"
+                    f"{faculty}|"
+                    f"{language}"
+                )
+
+                entity = await client.get_entity(
+                    chat_id
+                )
+
+                await client(
+                    functions.messages.ToggleNoForwardsRequest(
+                        peer=entity,
+                        enabled=enabled,
+                    )
+                )
+
+                results[key] = True
+
+            except Exception as error:
+
+                key = (
+                    f"{course}|"
+                    f"{selection}"
+                )
+
+                print(
+                    "Apply error:",
+                    key,
+                    error,
+                )
+
+                results[key] = False
+
+    return results
+
+
+@app.post("/apply-content-saving")
 def apply_content_saving():
 
-    # SERVER-SIDE ADMIN CHECK
-    if require_admin() is None:
+    user = require_admin()
+
+    if not user:
 
         return jsonify({
             "success": False,
-            "error": "Access denied"
+            "error": "Administrator access required.",
         }), 403
+
+    data = request.get_json(
+        silent=True
+    )
+
+    if not isinstance(data, dict):
+
+        return jsonify({
+            "success": False,
+            "error": "Invalid request.",
+        }), 400
+
+    enabled = bool(
+        data.get(
+            "enabled",
+            False,
+        )
+    )
+
+    selected_groups = data.get(
+        "groups",
+        {},
+    )
+
+    if not isinstance(
+        selected_groups,
+        dict,
+    ):
+
+        return jsonify({
+            "success": False,
+            "error": "Invalid groups.",
+        }), 400
 
     try:
 
-        data = request.get_json()
-
-        selected_groups = data.get(
-            "groups",
-            []
-        )
-
-        enabled = bool(
-            data.get(
-                "enabled",
-                False
-            )
-        )
-
-        if not isinstance(
-            selected_groups,
-            list
-        ):
-            return jsonify({
-                "success": False,
-                "error": "Invalid groups"
-            }), 400
-
-        result = run_telegram_coroutine(
-            apply_content_saving_to_groups(
+        results = run_on_telegram(
+            apply_content_saving_changes(
+                enabled,
                 selected_groups,
-                enabled
             )
         )
 
         return jsonify({
             "success": True,
-            "results": result
+            "results": results,
         })
 
-    except Exception as e:
+    except Exception as error:
 
         print(
-            f"Apply content saving error: {e}"
+            "Apply content-saving error:",
+            error,
         )
 
         return jsonify({
             "success": False,
-            "error": str(e)
+            "error": str(error),
         }), 500
 
 
@@ -797,112 +960,92 @@ def apply_content_saving():
 # TELEGRAM CLIENT STARTUP
 # ============================================================
 
-def telegram_worker():
-    global telegram_client
+def start_telegram():
+
     global telegram_loop
+    global telegram_account_id
 
-    telegram_loop = asyncio.new_event_loop()
+    async def runner():
 
-    asyncio.set_event_loop(
-        telegram_loop
-    )
+        global telegram_loop
+        global telegram_account_id
 
-    telegram_client = TelegramClient(
-        SESSION_FILE,
-        API_ID,
-        API_HASH
-    )
+        telegram_loop = asyncio.get_running_loop()
 
-    async def start_client():
+        await client.connect()
 
-        await telegram_client.connect()
-
-        if not await telegram_client.is_user_authorized():
+        if not await client.is_user_authorized():
 
             print(
                 "Telegram session is not authorized."
             )
 
-            print(
-                "Please authorize "
-                f"{SESSION_FILE} first."
-            )
+            return
 
-            return False
+        me = await client.get_me()
 
-        me = await telegram_client.get_me()
+        telegram_account_id = me.id
+
+        print("Telegram client connected:")
 
         print(
-            "Telegram client connected:"
+            f"  Name: "
+            f"{me.first_name or ''} "
+            f"{me.last_name or ''}"
         )
 
         print(
-            f"  Name: {me.first_name}"
-        )
-
-        print(
-            f"  Username: @{me.username}"
+            f"  Username: "
+            f"@{me.username}"
+            if me.username
+            else "  Username: none"
         )
 
         print(
             f"  ID: {me.id}"
         )
 
-        return True
+        if me.id != ADMIN_ID:
 
-    authorized = telegram_loop.run_until_complete(
-        start_client()
-    )
+            print(
+                "ERROR: Telegram session account does not "
+                "match ADMIN_ID."
+            )
 
-    if not authorized:
+            print(
+                f"Session account: {me.id}"
+            )
 
-        telegram_loop.run_until_complete(
-            telegram_client.disconnect()
+            print(
+                f"Configured ADMIN_ID: {ADMIN_ID}"
+            )
+
+            return
+
+        telegram_ready.set()
+
+        print(
+            "Telegram event loop started."
         )
 
-        telegram_loop.close()
-
-        return
-
-    print(
-        "Telegram event loop started."
-    )
+        await client.run_until_disconnected()
 
     try:
 
-        telegram_loop.run_until_complete(
-            telegram_client.run_until_disconnected()
+        asyncio.run(
+            runner()
         )
 
-    except Exception as e:
+    except Exception as error:
 
         print(
-            f"Telegram loop error: {e}"
+            "Telegram client error:",
+            error,
         )
 
     finally:
 
-        telegram_loop.run_until_complete(
-            telegram_client.disconnect()
-        )
-
-        telegram_loop.close()
-
-        print(
-            "Telegram client disconnected."
-        )
-
-
-def start_telegram():
-
-    global telegram_thread
-
-    telegram_thread = threading.Thread(
-        target=telegram_worker,
-        daemon=True
-    )
-
-    telegram_thread.start()
+        telegram_ready.clear()
 
 
 # ============================================================
@@ -911,20 +1054,20 @@ def start_telegram():
 
 if __name__ == "__main__":
 
-    print(
-        "Starting Telegram client..."
+    telegram_thread = threading.Thread(
+        target=start_telegram,
+        daemon=True,
     )
 
-    start_telegram()
+    telegram_thread.start()
 
     print(
-        f"Starting Flask on "
-        f"{HOST}:{PORT}"
+        "Starting Flask on 0.0.0.0:8000"
     )
 
     app.run(
-        host=HOST,
-        port=PORT,
+        host="0.0.0.0",
+        port=8000,
         debug=False,
-        use_reloader=False
+        use_reloader=False,
     )
