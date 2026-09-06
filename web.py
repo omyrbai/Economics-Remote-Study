@@ -857,6 +857,36 @@ async def apply_content_saving_changes(
                     chat_id
                 )
 
+                # Read the current Telegram state.
+                current_state = (
+                    await get_group_content_saving_status(
+                        chat_id
+                    )
+                )
+
+                print(
+                    f"Content saving state: "
+                    f"{key} -> current={current_state}, "
+                    f"requested={enabled}"
+                )
+
+                # Nothing to change.
+                if current_state == enabled:
+
+                    print(
+                        f"Already in requested state: "
+                        f"{key}"
+                    )
+
+                    results[key] = {
+                        "success": True,
+                        "changed": False,
+                        "enabled": current_state,
+                    }
+
+                    continue
+
+                # Change the Telegram setting.
                 await client(
                     functions.messages.ToggleNoForwardsRequest(
                         peer=entity,
@@ -864,7 +894,44 @@ async def apply_content_saving_changes(
                     )
                 )
 
-                results[key] = True
+                print(
+                    f"Toggle request sent: "
+                    f"{key} -> enabled={enabled}"
+                )
+
+                # Verify the actual state after changing it.
+                final_state = (
+                    await get_group_content_saving_status(
+                        chat_id
+                    )
+                )
+
+                print(
+                    f"Content saving state after apply: "
+                    f"{key} -> {final_state}"
+                )
+
+                if final_state != enabled:
+
+                    print(
+                        f"Verification failed: "
+                        f"{key} -> expected={enabled}, "
+                        f"actual={final_state}"
+                    )
+
+                    results[key] = {
+                        "success": False,
+                        "changed": False,
+                        "enabled": final_state,
+                    }
+
+                    continue
+
+                results[key] = {
+                    "success": True,
+                    "changed": True,
+                    "enabled": final_state,
+                }
 
             except Exception as error:
 
@@ -879,10 +946,13 @@ async def apply_content_saving_changes(
                     error,
                 )
 
-                results[key] = False
+                results[key] = {
+                    "success": False,
+                    "changed": False,
+                    "error": str(error),
+                }
 
     return results
-
 
 @app.post("/apply-content-saving")
 def apply_content_saving():
