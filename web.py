@@ -408,6 +408,11 @@ async def bot_message_handler(event):
 
     sender_id = sender.id
 
+    destination_ids = configured_destination_chat_ids()
+
+    if event.chat_id in destination_ids:
+        return
+
     print(
         f"Bot received message: "
         f"sender_id={sender_id}, "
