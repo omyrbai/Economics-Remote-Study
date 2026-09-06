@@ -429,35 +429,14 @@ async def bot_message_handler(event):
         f"Accepted message from administrator: "
         f"{sender_id}"
     )
+    await distribute_message(
+        event.message
+    )
 
 
 # ============================================================
 # AUTOMATIC OUTGOING MESSAGE DISTRIBUTION
 # ============================================================
-
-@client.on(events.NewMessage(outgoing=True))
-async def outgoing_message_handler(event):
-
-    # The Telegram session must belong to the configured admin.
-    if telegram_account_id != ADMIN_ID:
-        return
-
-    # Do not redistribute messages which the distributor itself
-    # has just sent to destination groups.
-    destination_ids = configured_destination_chat_ids()
-
-    if event.chat_id in destination_ids:
-        return
-
-    print(
-        f"Outgoing message detected: "
-        f"chat_id={event.chat_id}, "
-        f"message_id={event.message.id}"
-    )
-
-    await distribute_message(
-        event.message
-    )
 
 
 # ============================================================
